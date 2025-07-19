@@ -105,18 +105,53 @@ class RhythmEngine {
     }
   }
   
-  // Score a single note hit
-  scoreNote(noteIndex, hitTime) {
+  // Score a single note hit (with optional duration checking)
+  scoreNote(noteIndex, hitTime, holdDuration = null) {
     const expectedTime = this.expectedTimes[noteIndex];
-    const diff = Math.abs(hitTime - expectedTime);
+    const timingDiff = Math.abs(hitTime - expectedTime);
     
-    if (diff <= this.scoringWindows.perfect) {
-      return { result: 'perfect', timing: diff };
-    } else if (diff <= this.scoringWindows.good) {
-      return { result: 'good', timing: diff };
+    // First check timing (existing logic)
+    let timingResult;
+    if (timingDiff <= this.scoringWindows.perfect) {
+      timingResult = 'perfect';
+    } else if (timingDiff <= this.scoringWindows.good) {
+      timingResult = 'good';
     } else {
-      return { result: 'miss', timing: diff };
+      timingResult = 'miss';
     }
+    
+    // If no hold duration provided (just a tap), return timing-based score
+    if (holdDuration === null) {
+      return { result: timingResult, timing: timingDiff, durationType: 'tap' };
+    }
+    
+    // Duration-based scoring (PHASE 1 - OPTIONAL)
+    const expectedDuration = this.getNoteDuration(this.pattern[noteIndex]);
+    const durationRatio = holdDuration / expectedDuration;
+    
+    let durationResult;
+    if (durationRatio >= 0.6 && durationRatio <= 1.4) {
+      // Good duration - keep timing result or upgrade
+      durationResult = timingResult;
+      if (timingResult === 'good' && durationRatio >= 0.8 && durationRatio <= 1.2) {
+        durationResult = 'perfect'; // Upgrade good timing + good duration to perfect
+      }
+    } else if (durationRatio >= 0.4 && durationRatio <= 1.6) {
+      // OK duration - might downgrade perfect to good
+      durationResult = timingResult === 'perfect' ? 'good' : timingResult;
+    } else {
+      // Bad duration - downgrade significantly
+      durationResult = timingResult === 'miss' ? 'miss' : 'good';
+    }
+    
+    return { 
+      result: durationResult, 
+      timing: timingDiff, 
+      durationType: 'hold',
+      durationRatio: durationRatio,
+      expectedDuration: expectedDuration,
+      actualDuration: holdDuration
+    };
   }
   
   // Score all notes based on hold periods
@@ -139,12 +174,21 @@ class RhythmEngine {
     // Score individual notes that aren't in hold groups
     this.pattern.forEach((note, index) => {
       if (results[index] === null && !note.rest) {
-        // Find best matching tap for this note
+        // Find best matching tap/hold for this note
         const noteTime = this.expectedTimes[index];
         let bestScore = { result: 'miss', timing: Infinity };
         
         this.holdPeriods.forEach(hold => {
-          const score = this.scoreNote(index, hold.down);
+          let score;
+          if (hold.up !== null) {
+            // Complete hold - use duration scoring
+            const holdDuration = hold.up - hold.down;
+            score = this.scoreNote(index, hold.down, holdDuration);
+          } else {
+            // Just a tap (no release) - use tap scoring
+            score = this.scoreNote(index, hold.down, null);
+          }
+          
           if (score.timing < bestScore.timing) {
             bestScore = score;
           }
@@ -187,12 +231,13 @@ class RhythmEngine {
     return groups;
   }
   
-  // Score a group of tied notes
+  // Score a group of tied notes (with duration checking)
   scoreHoldGroup(group) {
     const startTime = this.expectedTimes[group.start];
     const endNote = this.pattern[group.end];
     const endDuration = this.getNoteDuration(endNote);
     const endTime = this.expectedTimes[group.end] + endDuration;
+    const expectedGroupDuration = endTime - startTime;
     
     // Find a hold period that covers this group
     for (const hold of this.holdPeriods) {
@@ -202,18 +247,58 @@ class RhythmEngine {
       if (hold.down <= startTime + this.scoringWindows.good &&
           holdEnd >= endTime - this.scoringWindows.good) {
         
-        // Score based on start accuracy
+        // Score based on start accuracy (timing)
         const startDiff = Math.abs(hold.down - startTime);
+        let timingResult;
         
         if (startDiff <= this.scoringWindows.perfect) {
-          return { result: 'perfect', timing: startDiff };
+          timingResult = 'perfect';
         } else if (startDiff <= this.scoringWindows.good) {
-          return { result: 'good', timing: startDiff };
+          timingResult = 'good';
+        } else {
+          timingResult = 'miss';
+        }
+        
+        // Duration scoring for the hold group
+        if (hold.up !== null) {
+          const actualDuration = hold.up - hold.down;
+          const durationRatio = actualDuration / expectedGroupDuration;
+          
+          let finalResult;
+          if (durationRatio >= 0.6 && durationRatio <= 1.4) {
+            // Good duration - keep timing result or upgrade
+            finalResult = timingResult;
+            if (timingResult === 'good' && durationRatio >= 0.8 && durationRatio <= 1.2) {
+              finalResult = 'perfect';
+            }
+          } else if (durationRatio >= 0.4 && durationRatio <= 1.6) {
+            // OK duration - might downgrade
+            finalResult = timingResult === 'perfect' ? 'good' : timingResult;
+          } else {
+            // Bad duration - downgrade
+            finalResult = timingResult === 'miss' ? 'miss' : 'good';
+          }
+          
+          return { 
+            result: finalResult, 
+            timing: startDiff, 
+            durationType: 'holdGroup',
+            durationRatio: durationRatio,
+            expectedDuration: expectedGroupDuration,
+            actualDuration: actualDuration
+          };
+        } else {
+          // No release detected - just timing based
+          return { 
+            result: timingResult, 
+            timing: startDiff, 
+            durationType: 'tap'
+          };
         }
       }
     }
     
-    return { result: 'miss', timing: Infinity };
+    return { result: 'miss', timing: Infinity, durationType: 'missed' };
   }
   
   // Calculate statistics from results

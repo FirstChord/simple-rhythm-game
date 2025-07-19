@@ -5,12 +5,14 @@ A browser-based interactive rhythm game featuring visual metronome, pattern visu
 ## Features ✨
 
 ### Core Gameplay
+
 - **Interactive rhythm patterns** - Practice various rhythmic exercises
 - **Real-time scoring** - Get Perfect/Good/Miss feedback on your timing
 - **Multiple difficulty patterns** - From simple quarter notes to complex syncopated rhythms
 - **Tempo control** - Adjustable BPM from 60-180
 
 ### Visual & Audio Feedback
+
 - **Visual metronome** - Animated circle with beat indicators
 - **Pattern visualizer** - Color-coded rhythm blocks showing when to tap
 - **VexFlow sheet music** - Traditional music notation display
@@ -18,6 +20,7 @@ A browser-based interactive rhythm game featuring visual metronome, pattern visu
 - **Audio toggle** - Turn sound on/off as needed
 
 ### User Experience
+
 - **4-beat count-in** - Preparation time before each pattern starts
 - **Responsive design** - Works on desktop and mobile devices
 - **Single-screen layout** - No scrolling required, fits in 100vh
@@ -42,12 +45,14 @@ A browser-based interactive rhythm game featuring visual metronome, pattern visu
 ## Technical Features 🔧
 
 ### Architecture
+
 - **Modular JavaScript** - Clean separation of concerns
 - **Web Audio API** - Professional audio synthesis
 - **VexFlow integration** - Industry-standard music notation
 - **Responsive CSS** - Modern flexbox layout
 
 ### Files Structure
+
 ```
 ├── index.html              # Main game interface
 ├── gameController.js       # Core game logic and coordination
@@ -63,6 +68,7 @@ A browser-based interactive rhythm game featuring visual metronome, pattern visu
 ## Getting Started 🚀
 
 1. **Clone the repository**:
+
    ```bash
    git clone <repository-url>
    cd simple-rhythm
@@ -77,11 +83,11 @@ A browser-based interactive rhythm game featuring visual metronome, pattern visu
 ## Browser Compatibility 🌐
 
 - **Chrome** - Full support
-- **Firefox** - Full support  
+- **Firefox** - Full support
 - **Safari** - Full support
 - **Edge** - Full support
 
-*Note: Web Audio API requires user interaction before audio will play (browser security feature)*
+_Note: Web Audio API requires user interaction before audio will play (browser security feature)_
 
 ## Development 💻
 
