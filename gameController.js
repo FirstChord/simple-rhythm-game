@@ -62,6 +62,21 @@ class GameController {
       miss: 0
     };
     
+    // Multiplayer state
+    this.isMultiplayer = false;
+    this.scores = { player1: 0, player2: 0 };
+    this.hitCountsMP = { 
+      player1: { perfect: 0, good: 0, miss: 0 },
+      player2: { perfect: 0, good: 0, miss: 0 }
+    };
+    
+    // Track which notes have been scored to prevent double-scoring
+    this.scoredNotes = new Set();
+    
+    // Miss detection for multiplayer
+    this.missCheckTimer = null;
+    this.lastCheckedNoteIndex = -1;
+    
     // Initialize audio system
     this.audio = new SimpleAudio();
     
@@ -141,11 +156,29 @@ class GameController {
       e.target.textContent = isOn ? '🔊 Audio ON' : '🔇 Audio OFF';
     });
     
+    // Multiplayer toggle
+    document.getElementById('toggle-multiplayer').addEventListener('click', (e) => {
+      this.toggleMultiplayer();
+      e.target.textContent = this.isMultiplayer ? '👤 Single Player' : '👥 Multiplayer';
+    });
+    
     // Keyboard controls
     document.addEventListener('keydown', (e) => {
-      if (e.code === 'KeyT' && this.isPlaying && !this.isCountingIn) {
-        e.preventDefault();
-        this.handleInput('player1');
+      if (this.isPlaying && !this.isCountingIn) {
+        // Single player mode - only 'T' key
+        if (!this.isMultiplayer && e.code === 'KeyT') {
+          e.preventDefault();
+          this.handleInput('player1');
+        }
+        // Multiplayer mode - 'A' and 'K' keys
+        else if (this.isMultiplayer && e.code === 'KeyA') {
+          e.preventDefault();
+          this.handleInput('player1');
+        }
+        else if (this.isMultiplayer && e.code === 'KeyK') {
+          e.preventDefault();
+          this.handleInput('player2');
+        }
       }
     });
   }
@@ -176,6 +209,157 @@ class GameController {
   updateHitSummary() {
     const summary = `Perfect: ${this.hitCounts.perfect}, Good: ${this.hitCounts.good}, Miss: ${this.hitCounts.miss}`;
     this.hitSummaryDisplay.textContent = summary;
+  }
+  
+  // Toggle between single player and multiplayer modes
+  toggleMultiplayer() {
+    this.isMultiplayer = !this.isMultiplayer;
+    
+    // Show/hide appropriate UI elements
+    const singlePlayerPanel = document.querySelector('.info-panel:not(#multiplayer-scores)');
+    const multiplayerPanel = document.getElementById('multiplayer-scores');
+    
+    if (this.isMultiplayer) {
+      singlePlayerPanel.style.display = 'none';
+      multiplayerPanel.style.display = 'block';
+      console.log('Switched to multiplayer mode');
+    } else {
+      singlePlayerPanel.style.display = 'block';
+      multiplayerPanel.style.display = 'none';
+      console.log('Switched to single player mode');
+    }
+    
+    // Reset scores when switching modes
+    this.resetScores();
+  }
+  
+  // Reset all scoring data
+  resetScores() {
+    this.score = 0;
+    this.scores.player1 = 0;
+    this.scores.player2 = 0;
+    this.hitCounts = { perfect: 0, good: 0, miss: 0 };
+    this.hitCountsMP.player1 = { perfect: 0, good: 0, miss: 0 };
+    this.hitCountsMP.player2 = { perfect: 0, good: 0, miss: 0 };
+    
+    // Clear scored notes tracking
+    this.scoredNotes.clear();
+    
+    // Reset miss detection
+    this.lastCheckedNoteIndex = -1;
+    this.stopMissDetection();
+    
+    // Clear winning highlights
+    const player1Element = document.querySelector('.player-score:first-child');
+    const player2Element = document.querySelector('.player-score:last-child');
+    if (player1Element) player1Element.classList.remove('winning');
+    if (player2Element) player2Element.classList.remove('winning');
+    
+    // Update displays
+    this.scoreDisplay.textContent = this.score;
+    this.updateHitSummary();
+    this.updateMultiplayerDisplays();
+  }
+  
+  // Update multiplayer score displays
+  updateMultiplayerDisplays() {
+    if (!this.isMultiplayer) return;
+    
+    // Update scores
+    document.getElementById('score-p1').textContent = this.scores.player1;
+    document.getElementById('score-p2').textContent = this.scores.player2;
+    
+    // Update hit summaries
+    const hits1 = this.hitCountsMP.player1;
+    const hits2 = this.hitCountsMP.player2;
+    document.getElementById('hits-p1').textContent = `Perfect: ${hits1.perfect}, Good: ${hits1.good}, Miss: ${hits1.miss}`;
+    document.getElementById('hits-p2').textContent = `Perfect: ${hits2.perfect}, Good: ${hits2.good}, Miss: ${hits2.miss}`;
+    
+    // Update winning indicator
+    const player1Element = document.querySelector('.player-score:first-child');
+    const player2Element = document.querySelector('.player-score:last-child');
+    
+    if (this.scores.player1 > this.scores.player2) {
+      player1Element.classList.add('winning');
+      player2Element.classList.remove('winning');
+    } else if (this.scores.player2 > this.scores.player1) {
+      player2Element.classList.add('winning');
+      player1Element.classList.remove('winning');
+    } else {
+      player1Element.classList.remove('winning');
+      player2Element.classList.remove('winning');
+    }
+  }
+  
+  // Check for missed notes in multiplayer (notes that passed their timing window)
+  checkForMissedNotes() {
+    if (!this.isMultiplayer || !this.rhythmEngine || !this.rhythmEngine.isPlaying) return;
+    
+    const currentTime = Date.now() - this.rhythmEngine.startTime;
+    const missWindow = 170; // Same as "good" timing window
+    
+    // Check each note to see if its timing window has passed
+    this.rhythmEngine.expectedTimes.forEach((expectedTime, index) => {
+      // Only check notes we haven't processed yet
+      if (index <= this.lastCheckedNoteIndex) return;
+      
+      // Skip rest notes
+      if (this.rhythmEngine.pattern[index] && this.rhythmEngine.pattern[index].rest) {
+        this.lastCheckedNoteIndex = index;
+        return;
+      }
+      
+      // Check if this note's timing window has passed
+      if (currentTime > expectedTime + missWindow) {
+        // Check if either player hit this note
+        const player1Key = `player1-${index}`;
+        const player2Key = `player2-${index}`;
+        
+        if (!this.scoredNotes.has(player1Key)) {
+          // Player 1 missed this note
+          this.scoredNotes.add(player1Key);
+          this.hitCountsMP.player1.miss++;
+          console.log(`Player 1 missed note ${index} (expected at ${expectedTime}ms, now ${currentTime}ms)`);
+        }
+        
+        if (!this.scoredNotes.has(player2Key)) {
+          // Player 2 missed this note
+          this.scoredNotes.add(player2Key);
+          this.hitCountsMP.player2.miss++;
+          console.log(`Player 2 missed note ${index} (expected at ${expectedTime}ms, now ${currentTime}ms)`);
+        }
+        
+        // Update the display
+        this.updateMultiplayerDisplays();
+        
+        // Show visual feedback for misses
+        if (this.visualizer) {
+          this.visualizer.flashNoteFeedback(index, 'miss');
+        }
+        
+        this.lastCheckedNoteIndex = index;
+      }
+    });
+  }
+  
+  // Start miss detection timer for multiplayer
+  startMissDetection() {
+    if (this.missCheckTimer) {
+      clearInterval(this.missCheckTimer);
+    }
+    
+    this.lastCheckedNoteIndex = -1;
+    this.missCheckTimer = setInterval(() => {
+      this.checkForMissedNotes();
+    }, 50); // Check every 50ms
+  }
+  
+  // Stop miss detection timer
+  stopMissDetection() {
+    if (this.missCheckTimer) {
+      clearInterval(this.missCheckTimer);
+      this.missCheckTimer = null;
+    }
   }
   
   // Convert pattern strings to VexFlow format
@@ -467,6 +651,9 @@ class GameController {
   async startGame() {
     console.log("Starting game with pattern:", this.selectedPattern, "at", this.currentTempo, "BPM");
     
+    // Reset scores and clear highlights from previous game
+    this.resetScores();
+    
     // Get pattern data
     const patternData = this.getCurrentPattern();
     if (!patternData) {
@@ -574,6 +761,11 @@ class GameController {
     // Start visualizer
     this.visualizer.start();
     
+    // Start miss detection for multiplayer
+    if (this.isMultiplayer) {
+      this.startMissDetection();
+    }
+    
     // Store pattern end time for precise stopping
     this.patternEndTime = performance.now() + totalDuration;
     
@@ -605,6 +797,9 @@ class GameController {
       clearInterval(this.completionCheckInterval);
       this.completionCheckInterval = null;
     }
+    
+    // Stop miss detection
+    this.stopMissDetection();
     
     // Stop rhythm engine
     if (this.rhythmEngine) {
@@ -651,10 +846,10 @@ class GameController {
     
     // Provide immediate visual feedback
     const currentTime = Date.now() - this.rhythmEngine.startTime;
-    this.showTapFeedback(currentTime);
+    this.showTapFeedback(currentTime, player);
   }
   
-  showTapFeedback(tapTime) {
+  showTapFeedback(tapTime, player = 'player1') {
     // Find the closest expected note
     let closestIndex = -1;
     let closestDiff = Infinity;
@@ -668,42 +863,80 @@ class GameController {
     });
     
     if (closestIndex !== -1) {
-      // Score this tap immediately for feedback
-      const result = this.rhythmEngine.scoreNote(closestIndex, tapTime);
+      // Create unique identifier for this player-note combination
+      const noteKey = `${player}-${closestIndex}`;
       
-      // Update live feedback display
-      let feedbackText = `${result.result.toUpperCase()} (${Math.round(result.timing)}ms off)`;
-      let feedbackColor = '#666';
+      // Check if this player has already scored this note
+      if (this.scoredNotes.has(noteKey)) {
+        console.log(`${player} already scored note ${closestIndex}, ignoring duplicate`);
+        return;
+      }
       
+      // Mark this note as scored by this player
+      this.scoredNotes.add(noteKey);
+      
+      // Score this tap - but don't let it affect the rhythm engine state for other players
+      let result;
+      if (this.isMultiplayer) {
+        // In multiplayer, manually calculate timing without affecting rhythm engine
+        const timing = tapTime - this.rhythmEngine.expectedTimes[closestIndex];
+        const absTimingError = Math.abs(timing);
+        
+        if (absTimingError <= 70) {
+          result = { result: 'perfect', timing: timing };
+        } else if (absTimingError <= 170) {
+          result = { result: 'good', timing: timing };
+        } else {
+          result = { result: 'miss', timing: timing };
+        }
+      } else {
+        // Single player uses rhythm engine normally
+        result = this.rhythmEngine.scoreNote(closestIndex, tapTime);
+      }
+      
+      // Calculate score points
+      let points = 0;
       switch(result.result) {
         case 'perfect':
-          feedbackColor = '#4CAF50';
-          this.score += 100;
-          this.hitCounts.perfect++;
+          points = 100;
           break;
         case 'good':
-          feedbackColor = '#FF9800';
-          this.score += 50;
-          this.hitCounts.good++;
+          points = 50;
           break;
         case 'miss':
-          feedbackColor = '#f44336';
-          this.hitCounts.miss++;
+          points = 0;
           break;
       }
       
-      // Update displays
-      this.lastHitDisplay.textContent = feedbackText;
-      this.lastHitDisplay.style.color = feedbackColor;
-      this.scoreDisplay.textContent = this.score;
-      this.updateHitSummary();
+      // Update appropriate scoring system
+      if (this.isMultiplayer) {
+        // Update multiplayer scores
+        this.scores[player] += points;
+        this.hitCountsMP[player][result.result]++;
+        this.updateMultiplayerDisplays();
+        console.log(`${player}: ${result.result} (${Math.round(result.timing)}ms off) - Score: ${this.scores[player]}`);
+      } else {
+        // Update single player scores
+        this.score += points;
+        this.hitCounts[result.result]++;
+        
+        // Update single player feedback display
+        let feedbackText = `${result.result.toUpperCase()} (${Math.round(result.timing)}ms off)`;
+        let feedbackColor = result.result === 'perfect' ? '#4CAF50' : 
+                           result.result === 'good' ? '#FF9800' : '#f44336';
+        
+        this.lastHitDisplay.textContent = feedbackText;
+        this.lastHitDisplay.style.color = feedbackColor;
+        this.scoreDisplay.textContent = this.score;
+        this.updateHitSummary();
+        
+        console.log(`Single player: ${result.result} (${Math.round(result.timing)}ms off) - Score: ${this.score}`);
+      }
       
-      // Show feedback on the pattern visualizer
+      // Show feedback on the pattern visualizer (same for both modes)
       if (this.visualizer) {
         this.visualizer.flashNoteFeedback(closestIndex, result.result);
       }
-      
-      console.log(`Tap feedback: ${result.result} (${Math.round(result.timing)}ms off)`);
     }
   }
 }

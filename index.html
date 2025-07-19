@@ -279,6 +279,52 @@
                 line-height: 60px !important;
             }
         }
+        
+        /* Multiplayer Styles */
+        .player-scores {
+            display: flex;
+            gap: 20px;
+        }
+        
+        .player-score {
+            flex: 1;
+            background: #f0f8ff;
+            padding: 10px;
+            border-radius: 4px;
+            border: 2px solid #ddd;
+        }
+        
+        .player-score h4 {
+            margin: 0 0 8px 0;
+            color: #333;
+            font-size: 14px;
+        }
+        
+        .score-display {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 4px;
+            font-weight: bold;
+        }
+        
+        .score-value {
+            color: #2196F3;
+            font-size: 16px;
+        }
+        
+        .player-score.winning {
+            border-color: #4CAF50;
+            background: #f0fff0;
+        }
+        
+        .player-score.winning .score-value {
+            color: #4CAF50;
+        }
+        
+        .hit-summary-text {
+            font-size: 11px;
+            color: #666;
+        }
     </style>
 </head>
 <body>
@@ -311,6 +357,7 @@
                     <button id="startBtn" class="primary-btn">Start Game</button>
                     <button id="stopBtn" class="secondary-btn" disabled>Stop</button>
                     <button id="toggle-audio">🔊 Audio ON</button>
+                    <button id="toggle-multiplayer">👥 Multiplayer</button>
                 </div>
             </div>
         </div>
@@ -340,6 +387,33 @@
             <div class="info-row">
                 <span class="info-label">Tempo:</span>
                 <span id="tempoInfo" class="info-value">120 BPM</span>
+            </div>
+        </div>
+        
+        <!-- Multiplayer Scores (hidden by default) -->
+        <div id="multiplayer-scores" class="info-panel" style="display: none;">
+            <h3>Multiplayer Mode</h3>
+            <div class="player-scores">
+                <div class="player-score">
+                    <h4>Player 1 (A key)</h4>
+                    <div class="score-display">
+                        <span class="score-label">Score:</span>
+                        <span id="score-p1" class="score-value">0</span>
+                    </div>
+                    <div class="hit-summary">
+                        <span id="hits-p1" class="hit-summary-text">Perfect: 0, Good: 0, Miss: 0</span>
+                    </div>
+                </div>
+                <div class="player-score">
+                    <h4>Player 2 (K key)</h4>
+                    <div class="score-display">
+                        <span class="score-label">Score:</span>
+                        <span id="score-p2" class="score-value">0</span>
+                    </div>
+                    <div class="hit-summary">
+                        <span id="hits-p2" class="hit-summary-text">Perfect: 0, Good: 0, Miss: 0</span>
+                    </div>
+                </div>
             </div>
         </div>
         
