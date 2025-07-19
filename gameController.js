@@ -406,6 +406,10 @@ class GameController {
         if (lastHold && lastHold.up === null) lastHold.up = now;
       }
     }
+    // Add support for 'T' key release (for rhythm engine hold tracking)
+    if (e.code === 'KeyT' && this.rhythmEngine && this.isPlaying && !this.isCountingIn) {
+      this.rhythmEngine.registerHoldEnd();
+    }
   }
   
   touchTapHandler(e) {
