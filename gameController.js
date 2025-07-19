@@ -629,64 +629,16 @@ class GameController {
   }
   
   endGame() {
-    // Calculate final score
-    const results = this.rhythmEngine.scorePattern();
-    this.calculateFinalScore(results);
-    
     // Stop the game
     this.stopGame();
     
-    // Show completion message with score
-    const accuracy = this.calculateAccuracy(results);
+    // Show completion message with score (using real-time data)
+    const totalNotes = this.hitCounts.perfect + this.hitCounts.good + this.hitCounts.miss;
+    const hitNotes = this.hitCounts.perfect + this.hitCounts.good;
+    const accuracy = totalNotes > 0 ? Math.round((hitNotes / totalNotes) * 100) : 0;
     this.gameStatus.textContent = `Pattern complete! Score: ${this.score} (${accuracy}% accuracy)`;
     
-    console.log("Game ended! Final results:", results);
-  }
-  
-  calculateFinalScore(results) {
-    let totalScore = 0;
-    let perfectCount = 0;
-    let goodCount = 0;
-    let missCount = 0;
-    
-    results.forEach(result => {
-      if (result) {
-        switch(result.result) {
-          case 'perfect':
-            totalScore += 100;
-            perfectCount++;
-            break;
-          case 'good':
-            totalScore += 50;
-            goodCount++;
-            break;
-          case 'miss':
-            missCount++;
-            break;
-        }
-      } else {
-        missCount++;
-      }
-    });
-    
-    // Update the hit counts to reflect final results
-    this.hitCounts = {
-      perfect: perfectCount,
-      good: goodCount,
-      miss: missCount
-    };
-    
-    this.score = totalScore;
-    this.scoreDisplay.textContent = this.score;
-    this.updateHitSummary();
-    
-    console.log(`Score breakdown: ${perfectCount} perfect, ${goodCount} good, ${missCount} missed`);
-  }
-  
-  calculateAccuracy(results) {
-    const totalNotes = results.length;
-    const hitNotes = results.filter(r => r && r.result !== 'miss').length;
-    return Math.round((hitNotes / totalNotes) * 100);
+    console.log("Game ended! Real-time results:", this.hitCounts);
   }
   
   handleInput(player) {
