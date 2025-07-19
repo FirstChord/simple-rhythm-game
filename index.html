@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple Rhythm Game</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 10px;
+            background-color: #f0f0f0;
+            height: 100vh;
+            overflow: hidden;
+        }
+        
+        .game-container {
+            max-width: 900px;
+            height: calc(100vh - 20px);
+            margin: 0 auto;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .header {
+            background: #333;
+            color: white;
+            padding: 12px 20px;
+            text-align: center;
+            flex-shrink: 0;
+        }
+        
+        .header h1 {
+            margin: 0;
+            font-size: 20px;
+        }
+        
+        .controls {
+            padding: 12px 20px;
+            background: #f8f8f8;
+            border-bottom: 1px solid #ddd;
+            flex-shrink: 0;
+        }
+        
+        .control-group {
+            margin-bottom: 8px;
+        }
+        
+        .control-group:last-child {
+            margin-bottom: 0;
+        }
+        
+        .control-group label {
+            display: block;
+            margin-bottom: 3px;
+            font-weight: bold;
+            color: #333;
+            font-size: 14px;
+        }
+        
+        .control-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        
+        input[type="range"] {
+            flex: 1;
+            min-width: 120px;
+        }
+        
+        .value-display {
+            min-width: 50px;
+            text-align: center;
+            font-weight: bold;
+            color: #666;
+            font-size: 14px;
+        }
+        
+        button {
+            padding: 8px 16px;
+            font-size: 14px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .primary-btn {
+            background: #4CAF50;
+            color: white;
+        }
+        
+        .primary-btn:hover {
+            background: #45a049;
+        }
+        
+        .primary-btn:disabled {
+            background: #cccccc;
+            cursor: not-allowed;
+        }
+        
+        .secondary-btn {
+            background: #f44336;
+            color: white;
+        }
+        
+        .secondary-btn:hover {
+            background: #da190b;
+        }
+        
+        .info-panel {
+            padding: 10px 20px;
+            background: #e8f5e8;
+            border-bottom: 1px solid #ddd;
+            flex-shrink: 0;
+        }
+        
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 4px;
+            font-size: 13px;
+        }
+        
+        .info-row:last-child {
+            margin-bottom: 0;
+        }
+        
+        .info-label {
+            font-weight: bold;
+            color: #333;
+        }
+        
+        .info-value {
+            color: #666;
+        }
+        
+        /* Combined gameplay area */
+        .gameplay-area {
+            display: flex;
+            gap: 15px;
+            padding: 12px 20px;
+            border-bottom: 1px solid #ddd;
+            flex-shrink: 0;
+            min-height: 120px; /* Increased to accommodate beat dots */
+        }
+        
+        .metronome-container {
+            flex: 0 0 auto;
+            display: flex;
+            align-items: flex-start; /* Changed from center to flex-start */
+            justify-content: center;
+            padding-top: 10px; /* Add some top padding for better positioning */
+        }
+        
+        .visualizer-container {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            min-width: 0;
+        }
+        
+        /* Metronome styles - compact size with proper spacing */
+        .visual-metronome {
+            width: 80px;
+            height: 110px; /* Increased to include space for dots */
+        }
+        
+        .beat-indicator {
+            width: 80px !important;
+            height: 80px !important;
+        }
+        
+        .beat-counter {
+            font-size: 24px !important;
+            line-height: 80px !important;
+        }
+        
+        .beat-dots {
+            margin-top: 8px !important;
+            height: 16px; /* Ensure dots have proper height */
+        }
+        
+        .beat-dot {
+            width: 8px !important;
+            height: 8px !important;
+            margin: 0 2px !important;
+        }
+        
+        .notation-section {
+            padding: 12px 20px;
+            border-bottom: 1px solid #ddd;
+            background: white;
+            flex: 1;
+            overflow: auto;
+            min-height: 0;
+        }
+        
+        .notation-section h3 {
+            margin: 0 0 8px 0;
+            color: #333;
+            font-size: 16px;
+        }
+        
+        #notation-container {
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            padding: 12px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            height: 120px;
+            overflow: hidden;
+        }
+        
+        .instructions {
+            padding: 12px 20px;
+            background: #f0f8ff;
+            border-top: 1px solid #ddd;
+            color: #666;
+            font-size: 12px;
+            line-height: 1.4;
+            flex-shrink: 0;
+        }
+        
+        .instructions h3 {
+            margin: 0 0 6px 0;
+            color: #333;
+            font-size: 14px;
+        }
+        
+        .instructions ul {
+            margin: 6px 0;
+            padding-left: 16px;
+        }
+        
+        .instructions li {
+            margin-bottom: 2px;
+        }
+        
+        @media (max-width: 768px) {
+            .control-row {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            
+            .info-row {
+                flex-direction: column;
+                font-size: 12px;
+            }
+            
+            .info-value {
+                margin-top: 2px;
+            }
+            
+            .gameplay-area {
+                flex-direction: column;
+                gap: 10px;
+                text-align: center;
+            }
+            
+            .metronome-container {
+                flex: none;
+            }
+            
+            .visual-metronome,
+            .beat-indicator {
+                width: 60px !important;
+                height: 60px !important;
+            }
+            
+            .beat-counter {
+                font-size: 18px !important;
+                line-height: 60px !important;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <div class="header">
+            <h1>Simple Rhythm Game</h1>
+        </div>
+        
+        <!-- Game Controls -->
+        <div class="controls">
+            <div class="control-group">
+                <label>Tempo (BPM)</label>
+                <div class="control-row">
+                    <input type="range" id="tempoSlider" min="60" max="180" value="120">
+                    <span id="tempoValue" class="value-display">120</span>
+                </div>
+            </div>
+            
+            <div class="control-group">
+                <label>Pattern</label>
+                <div class="control-row">
+                    <select id="patternSelect">
+                        <!-- Options will be populated by JavaScript -->
+                    </select>
+                </div>
+            </div>
+            
+            <div class="control-group">
+                <div class="control-row">
+                    <button id="startBtn" class="primary-btn">Start Game</button>
+                    <button id="stopBtn" class="secondary-btn" disabled>Stop</button>
+                    <button id="toggle-audio">🔊 Audio ON</button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Game Info Panel -->
+        <div class="info-panel">
+            <div class="info-row">
+                <span class="info-label">Status:</span>
+                <span id="gameStatus" class="info-value">Ready to play</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Score:</span>
+                <span id="scoreDisplay" class="info-value">0</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Last Hit:</span>
+                <span id="lastHitDisplay" class="info-value">-</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Hit Summary:</span>
+                <span id="hitSummaryDisplay" class="info-value">Perfect: 0, Good: 0, Miss: 0</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Pattern:</span>
+                <span id="patternInfo" class="info-value">Simple Quarter Notes</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Tempo:</span>
+                <span id="tempoInfo" class="info-value">120 BPM</span>
+            </div>
+        </div>
+        
+        <!-- Combined Gameplay Area -->
+        <div class="gameplay-area">
+            <!-- Visual Metronome -->
+            <div class="metronome-container">
+                <div id="metronomeDisplay"></div>
+            </div>
+            
+            <!-- Pattern Visualizer -->
+            <div class="visualizer-container">
+                <div id="patternDisplay"></div>
+            </div>
+        </div>
+        
+        <!-- VexFlow Music Notation -->
+        <div class="notation-section">
+            <h3>Sheet Music</h3>
+            <div id="notation-container"></div>
+        </div>
+        
+        <!-- Instructions -->
+        <div class="instructions">
+            <h3>How to Play:</h3>
+            <ul>
+                <li><strong>Choose settings:</strong> Tempo & pattern</li>
+                <li><strong>Watch metronome:</strong> Shows steady beat</li>
+                <li><strong>Follow pattern:</strong> Tap 'T' on rhythm blocks</li>
+                <li><strong>Skip rests:</strong> Don't tap during rest periods</li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- Load VexFlow -->
+    <script src="https://cdn.jsdelivr.net/npm/vexflow@4.2.2/build/cjs/vexflow.js"></script>
+    <script src="vexflowDisplay.js"></script>
+    
+    <!-- Load Audio System -->
+    <script src="simpleAudio.js"></script>
+    
+    <!-- Load JavaScript modules -->
+    <script src="rhythmEngine.js"></script>
+    <script src="patternVisualizer.js"></script>
+    <script src="visualMetronome.js"></script>
+    <script src="patterns.js"></script>
+    <script src="gameController.js"></script>
+    
+    <script>
+        // Initialize the game when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            const gameController = new GameController();
+            console.log('Simple Rhythm Game initialized!');
+        });
+    </script>
+</body>
+</html>

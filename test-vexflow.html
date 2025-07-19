@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VexFlow Integration Test</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    
+    .controls {
+      margin-bottom: 20px;
+    }
+    
+    .controls button {
+      padding: 10px 20px;
+      margin: 5px;
+      font-size: 16px;
+    }
+    
+    #notation-container {
+      background: white;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      padding: 20px;
+      margin-bottom: 20px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    #pattern-info {
+      background: #f5f5f5;
+      padding: 15px;
+      border-radius: 4px;
+      margin-bottom: 20px;
+      font-family: monospace;
+    }
+    
+    .integration-note {
+      background: #e3f2fd;
+      border-left: 4px solid #2196F3;
+      padding: 15px;
+      margin: 20px 0;
+    }
+  </style>
+</head>
+<body>
+  <h1>VexFlow Static Notation Test</h1>
+  
+  <div class="integration-note">
+    <strong>📝 Stage 1:</strong> This shows your pattern as traditional sheet music. 
+    The notation is static for now - we'll add synchronization in Stage 2.
+  </div>
+  
+  <div class="controls">
+    <button id="btn-pattern1">Simple Pattern</button>
+    <button id="btn-pattern2">Complex Pattern</button>
+    <button id="btn-pattern3">With Rests</button>
+  </div>
+  
+  <div id="pattern-info"></div>
+  
+  <div id="notation-container"></div>
+  
+  <!-- Load VexFlow from CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/vexflow@4.2.2/build/cjs/vexflow.js"></script>
+  <script src="vexflowDisplay.js"></script>
+  
+  <script>
+    // Initialize VexFlow display
+    const vexDisplay = new VexFlowDisplay(document.getElementById('notation-container'));
+    const patternInfo = document.getElementById('pattern-info');
+    
+    // Test patterns (using your format)
+    const patterns = {
+      simple: [
+        { type: 'quarter', rest: false },
+        { type: 'quarter', rest: false },
+        { type: 'quarter', rest: false },
+        { type: 'quarter', rest: false }
+      ],
+      complex: [
+        { type: 'quarter', rest: false },
+        { type: 'eighth', rest: false },
+        { type: 'eighth', rest: false },
+        { type: 'sixteenth', rest: false },
+        { type: 'sixteenth', rest: false },
+        { type: 'sixteenth', rest: false },
+        { type: 'sixteenth', rest: false },
+        { type: 'quarter', rest: false }
+      ],
+      withRests: [
+        { type: 'quarter', rest: false },
+        { type: 'eighth', rest: true },
+        { type: 'eighth', rest: false },
+        { type: 'quarter', rest: true },
+        { type: 'quarter', rest: false }
+      ]
+    };
+    
+    // Display a pattern
+    function showPattern(patternName) {
+      const pattern = patterns[patternName];
+      
+      // Update info
+      patternInfo.innerHTML = `
+        <strong>Pattern: ${patternName}</strong><br>
+        Notes: ${pattern.map(n => n.rest ? `${n.type}(rest)` : n.type).join(', ')}
+      `;
+      
+      // Display in VexFlow
+      vexDisplay.displayPattern(pattern);
+    }
+    
+    // Button handlers
+    document.getElementById('btn-pattern1').addEventListener('click', () => showPattern('simple'));
+    document.getElementById('btn-pattern2').addEventListener('click', () => showPattern('complex'));
+    document.getElementById('btn-pattern3').addEventListener('click', () => showPattern('withRests'));
+    
+    // Show initial pattern
+    showPattern('simple');
+  </script>
+</body>
+</html>

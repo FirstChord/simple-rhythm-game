@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Rhythm Engine Test</title>
+  <style>
+    body {
+      font-family: monospace;
+      padding: 20px;
+      max-width: 600px;
+      margin: 0 auto;
+    }
+    button {
+      font-size: 20px;
+      padding: 10px 20px;
+      margin: 10px;
+    }
+    #output {
+      white-space: pre;
+      background: #f0f0f0;
+      padding: 15px;
+      margin: 20px 0;
+      border-radius: 5px;
+    }
+    #tapButton {
+      width: 200px;
+      height: 100px;
+      font-size: 30px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Rhythm Engine Test</h1>
+  
+  <button id="loadPattern">Load Test Pattern</button>
+  <button id="startTest">Start Playing</button>
+  <button id="showResults">Show Results</button>
+  
+  <div>
+    <button id="tapButton">TAP</button>
+  </div>
+  
+  <div id="output">Click "Load Test Pattern" to begin...</div>
+
+  <script src="rhythmEngine.js"></script>
+  <script>
+    const output = document.getElementById('output');
+    const engine = new RhythmEngine(120); // 120 BPM
+    
+    function log(msg) {
+      output.textContent += msg + '\n';
+    }
+    
+    function clearLog() {
+      output.textContent = '';
+    }
+    
+    // Load pattern button
+    document.getElementById('loadPattern').addEventListener('click', () => {
+      clearLog();
+      log('Loading pattern...');
+      
+      engine.loadPattern([
+        { type: 'quarter', rest: false },
+        { type: 'quarter', rest: false },
+        { type: 'eighth', rest: false },
+        { type: 'eighth', rest: false },
+        { type: 'quarter', rest: true },  // rest
+        { type: 'quarter', rest: false }
+      ]);
+      
+      log('Pattern loaded:');
+      log('- Quarter note (tap)');
+      log('- Quarter note (tap)');
+      log('- Eighth note (tap)');
+      log('- Eighth note (tap)');
+      log('- Quarter rest (no tap)');
+      log('- Quarter note (tap)');
+      log('');
+      log('Expected times (ms): ' + engine.expectedTimes.join(', '));
+    });
+    
+    // Start test button
+    document.getElementById('startTest').addEventListener('click', () => {
+      clearLog();
+      log('Starting in 3...');
+      
+      setTimeout(() => log('2...'), 1000);
+      setTimeout(() => log('1...'), 2000);
+      setTimeout(() => {
+        log('GO! Start tapping!');
+        engine.start();
+        
+        // Calculate actual pattern duration
+        const patternDuration = engine.expectedTimes[engine.expectedTimes.length - 1] + 
+                               engine.getNoteDuration(engine.pattern[engine.pattern.length - 1]);
+        
+        // Stop after pattern duration + small buffer
+        setTimeout(() => {
+          engine.stop();
+          log('\nPattern complete! Click "Show Results"');
+        }, patternDuration + 500);
+      }, 3000);
+    });
+    
+    // Tap button
+    document.getElementById('tapButton').addEventListener('mousedown', () => {
+      if (engine.isPlaying) {
+        engine.registerHoldStart();
+        log('↓ Hold start');
+      }
+    });
+    
+    document.getElementById('tapButton').addEventListener('mouseup', () => {
+      if (engine.isPlaying) {
+        engine.registerHoldEnd();
+        log('↑ Hold end');
+      }
+    });
+    
+    // Also support spacebar
+    document.addEventListener('keydown', (e) => {
+      if (e.code === 'Space' && engine.isPlaying && !e.repeat) {
+        e.preventDefault();
+        engine.registerHoldStart();
+        log('↓ Hold start (space)');
+      }
+    });
+    
+    document.addEventListener('keyup', (e) => {
+      if (e.code === 'Space' && engine.isPlaying) {
+        e.preventDefault();
+        engine.registerHoldEnd();
+        log('↑ Hold end (space)');
+      }
+    });
+    
+    // Show results button
+    document.getElementById('showResults').addEventListener('click', () => {
+      const results = engine.scorePattern();
+      const stats = engine.getStats(results);
+      
+      clearLog();
+      log('=== RESULTS ===');
+      log('');
+      
+      results.forEach((result, i) => {
+        const note = engine.pattern[i];
+        const noteType = note.rest ? 'Rest' : `${note.type} note`;
+        log(`Note ${i} (${noteType}): ${result.result.toUpperCase()}`);
+      });
+      
+      log('');
+      log('=== STATISTICS ===');
+      log(`Perfect: ${stats.perfect}`);
+      log(`Good: ${stats.good}`);
+      log(`Miss: ${stats.miss}`);
+      log(`Accuracy: ${stats.accuracy}%`);
+      log(`Score: ${stats.score}`);
+    });
+  </script>
+</body>
+</html>

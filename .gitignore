@@ -1,0 +1,18 @@
+# Dependencies and build files
+node_modules/
+*.log
+*.tmp
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Backup files
+*.bak
+*~
