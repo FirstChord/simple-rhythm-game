@@ -321,25 +321,55 @@ class PatternVisualizer {
   
   // Flash feedback on a specific note
   flashNoteFeedback(noteIndex, result) {
+    console.log(`flashNoteFeedback called: noteIndex=${noteIndex}, result=${result}`);
     const block = this.timelineEl.querySelector(`[data-index="${noteIndex}"]`);
-    if (!block) return;
+    if (!block) {
+      console.log(`No block found for noteIndex ${noteIndex}`);
+      return;
+    }
     
     block.classList.add('hit-feedback');
     
-    // Add temporary color based on result
-    const originalBg = block.style.background;
+    // Add persistent color based on result (don't revert back)
     if (result === 'perfect') {
-      block.style.background = '#4CAF50';
+      block.style.background = '#4CAF50'; // Green
+      block.classList.add('perfect');
     } else if (result === 'good') {
-      block.style.background = '#FF9800';
-    } else {
-      block.style.background = '#f44336';
+      block.style.background = '#FF9800'; // Yellow
+      block.classList.add('good');
+    } else if (result === 'miss') {
+      block.style.background = '#f44336'; // Red
+      block.classList.add('miss');
     }
     
+    // Keep the feedback visible (don't remove it after timeout)
     setTimeout(() => {
       block.classList.remove('hit-feedback');
-      block.style.background = originalBg;
+      // Don't revert background - keep the color
     }, 300);
+  }
+  
+  // Flash warning for rest violations
+  flashRestWarning(restIndex) {
+    console.log(`flashRestWarning called: restIndex=${restIndex}`);
+    
+    const block = this.timelineEl.querySelector(`[data-index="${restIndex}"]`);
+    
+    if (!block) {
+      console.log(`No block found for rest index ${restIndex}`);
+      return;
+    }
+    
+    // Briefly flash orange/yellow warning color
+    const originalBg = block.style.background;
+    block.style.background = '#FF6B35'; // Orange warning
+    block.classList.add('rest-warning');
+    
+    // Revert after brief warning flash
+    setTimeout(() => {
+      block.style.background = originalBg;
+      block.classList.remove('rest-warning');
+    }, 500);
   }
   
   // Helper to get note duration

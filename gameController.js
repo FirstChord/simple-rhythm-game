@@ -62,12 +62,21 @@ class GameController {
       miss: 0
     };
     
+    // Rest violations tracking
+    this.restViolations = 0;
+    
     // Multiplayer state
     this.isMultiplayer = false;
     this.scores = { player1: 0, player2: 0 };
     this.hitCountsMP = { 
       player1: { perfect: 0, good: 0, miss: 0 },
       player2: { perfect: 0, good: 0, miss: 0 }
+    };
+    
+    // Rest violations for multiplayer
+    this.restViolationsMP = {
+      player1: 0,
+      player2: 0
     };
     
     // Track which notes have been scored to prevent double-scoring
@@ -207,7 +216,7 @@ class GameController {
   
   // Update hit summary display
   updateHitSummary() {
-    const summary = `Perfect: ${this.hitCounts.perfect}, Good: ${this.hitCounts.good}, Miss: ${this.hitCounts.miss}`;
+    const summary = `Perfect: ${this.hitCounts.perfect}, Good: ${this.hitCounts.good}, Miss: ${this.hitCounts.miss}${this.restViolations > 0 ? `, Rest Taps: ${this.restViolations}` : ''}`;
     this.hitSummaryDisplay.textContent = summary;
   }
   
@@ -242,6 +251,11 @@ class GameController {
     this.hitCountsMP.player1 = { perfect: 0, good: 0, miss: 0 };
     this.hitCountsMP.player2 = { perfect: 0, good: 0, miss: 0 };
     
+    // Reset rest violations
+    this.restViolations = 0;
+    this.restViolationsMP.player1 = 0;
+    this.restViolationsMP.player2 = 0;
+    
     // Clear scored notes tracking
     this.scoredNotes.clear();
     
@@ -272,8 +286,11 @@ class GameController {
     // Update hit summaries
     const hits1 = this.hitCountsMP.player1;
     const hits2 = this.hitCountsMP.player2;
-    document.getElementById('hits-p1').textContent = `Perfect: ${hits1.perfect}, Good: ${hits1.good}, Miss: ${hits1.miss}`;
-    document.getElementById('hits-p2').textContent = `Perfect: ${hits2.perfect}, Good: ${hits2.good}, Miss: ${hits2.miss}`;
+    const rests1 = this.restViolationsMP.player1;
+    const rests2 = this.restViolationsMP.player2;
+    
+    document.getElementById('hits-p1').textContent = `Perfect: ${hits1.perfect}, Good: ${hits1.good}, Miss: ${hits1.miss}${rests1 > 0 ? `, Rest Taps: ${rests1}` : ''}`;
+    document.getElementById('hits-p2').textContent = `Perfect: ${hits2.perfect}, Good: ${hits2.good}, Miss: ${hits2.miss}${rests2 > 0 ? `, Rest Taps: ${rests2}` : ''}`;
     
     // Update winning indicator
     const player1Element = document.querySelector('.player-score:first-child');
@@ -291,50 +308,91 @@ class GameController {
     }
   }
   
-  // Check for missed notes in multiplayer (notes that passed their timing window)
+  // Check for missed notes (notes that passed their timing window)
   checkForMissedNotes() {
-    if (!this.isMultiplayer || !this.rhythmEngine || !this.rhythmEngine.isPlaying) return;
+    if (!this.rhythmEngine || !this.rhythmEngine.isPlaying) return;
     
     const currentTime = Date.now() - this.rhythmEngine.startTime;
     const missWindow = 170; // Same as "good" timing window
+    
+    console.log(`DEBUG: Miss check at time ${currentTime}ms, lastCheckedNoteIndex=${this.lastCheckedNoteIndex}`);
     
     // Check each note to see if its timing window has passed
     this.rhythmEngine.expectedTimes.forEach((expectedTime, index) => {
       // Only check notes we haven't processed yet
       if (index <= this.lastCheckedNoteIndex) return;
       
-      // Skip rest notes
+      // Skip rest notes - they can't be missed since you shouldn't tap them
       if (this.rhythmEngine.pattern[index] && this.rhythmEngine.pattern[index].rest) {
-        this.lastCheckedNoteIndex = index;
+        console.log(`DEBUG: Skipping rest note ${index} at ${expectedTime}ms`);
+        // DON'T update lastCheckedNoteIndex here - let it continue checking subsequent notes
         return;
       }
       
+      console.log(`DEBUG: Checking note ${index}: expectedTime=${expectedTime}ms, currentTime=${currentTime}ms, missWindow=${missWindow}ms`);
+      
       // Check if this note's timing window has passed
       if (currentTime > expectedTime + missWindow) {
-        // Check if either player hit this note
-        const player1Key = `player1-${index}`;
-        const player2Key = `player2-${index}`;
+        console.log(`DEBUG: Note ${index} timing window expired (${currentTime}ms > ${expectedTime + missWindow}ms)`);
         
-        if (!this.scoredNotes.has(player1Key)) {
-          // Player 1 missed this note
-          this.scoredNotes.add(player1Key);
-          this.hitCountsMP.player1.miss++;
-          console.log(`Player 1 missed note ${index} (expected at ${expectedTime}ms, now ${currentTime}ms)`);
-        }
-        
-        if (!this.scoredNotes.has(player2Key)) {
-          // Player 2 missed this note
-          this.scoredNotes.add(player2Key);
-          this.hitCountsMP.player2.miss++;
-          console.log(`Player 2 missed note ${index} (expected at ${expectedTime}ms, now ${currentTime}ms)`);
-        }
-        
-        // Update the display
-        this.updateMultiplayerDisplays();
-        
-        // Show visual feedback for misses
-        if (this.visualizer) {
-          this.visualizer.flashNoteFeedback(index, 'miss');
+        if (this.isMultiplayer) {
+          // Multiplayer mode: check each player separately
+          const player1Key = `player1-${index}`;
+          const player2Key = `player2-${index}`;
+          
+          if (!this.scoredNotes.has(player1Key)) {
+            // Player 1 missed this note
+            this.scoredNotes.add(player1Key);
+            this.hitCountsMP.player1.miss++;
+            console.log(`Player 1 missed note ${index} (expected at ${expectedTime}ms, now ${currentTime}ms)`);
+            
+            // Show visual feedback for misses
+            if (this.visualizer) {
+              this.visualizer.flashNoteFeedback(index, 'miss');
+            }
+          }
+          
+          if (!this.scoredNotes.has(player2Key)) {
+            // Player 2 missed this note
+            this.scoredNotes.add(player2Key);
+            this.hitCountsMP.player2.miss++;
+            console.log(`Player 2 missed note ${index} (expected at ${expectedTime}ms, now ${currentTime}ms)`);
+            
+            // Show visual feedback for misses (only once)
+            if (this.visualizer && !this.scoredNotes.has(player1Key)) {
+              this.visualizer.flashNoteFeedback(index, 'miss');
+            }
+          }
+          
+          // Update multiplayer display
+          this.updateMultiplayerDisplays();
+        } else {
+          // Single player mode: check if player hit this note
+          const playerKey = `player1-${index}`;
+          
+          console.log(`DEBUG: Single player check - note ${index}, playerKey=${playerKey}, scored=${this.scoredNotes.has(playerKey)}`);
+          
+          if (!this.scoredNotes.has(playerKey)) {
+            // Player missed this note
+            this.scoredNotes.add(playerKey);
+            this.hitCounts.miss++;
+            console.log(`Single player missed note ${index} (expected at ${expectedTime}ms, now ${currentTime}ms)`);
+            console.log(`Calling visual feedback for missed note ${index}`);
+            
+            // Update single player display
+            this.updateHitSummary();
+            
+            // Show visual feedback for misses (with small delay to avoid confusion with rest violations)
+            if (this.visualizer) {
+              console.log(`DEBUG: Scheduling visual feedback for missed note ${index}`);
+              setTimeout(() => {
+                console.log(`DEBUG: Executing visual feedback for missed note ${index}`);
+                this.visualizer.flashNoteFeedback(index, 'miss');
+              }, 200);
+            }
+          } else {
+            console.log(`DEBUG: Note ${index} already scored, skipping miss detection`);
+          }
         }
         
         this.lastCheckedNoteIndex = index;
@@ -342,7 +400,7 @@ class GameController {
     });
   }
   
-  // Start miss detection timer for multiplayer
+  // Start miss detection timer for all game modes
   startMissDetection() {
     if (this.missCheckTimer) {
       clearInterval(this.missCheckTimer);
@@ -506,146 +564,7 @@ class GameController {
     osc.stop(ctx.currentTime + 0.055);
     osc.onended = () => ctx.close();
   }
-  
-  // Event handlers for input
-  listenForTap() {
-    document.addEventListener('keydown', (e) => this.keyTapHandler(e), { passive: false });
-    document.addEventListener('keyup', (e) => this.keyTapUpHandler(e));
-    document.addEventListener('touchstart', (e) => this.touchTapHandler(e), { passive: false });
-    document.addEventListener('touchend', (e) => this.touchEndHandler(e), { passive: false });
-  }
-  
-  stopListeningForTap() {
-    document.removeEventListener('keydown', this.keyTapHandler);
-    document.removeEventListener('keyup', this.keyTapUpHandler);
-    document.removeEventListener('touchstart', this.touchTapHandler);
-    document.removeEventListener('touchend', this.touchEndHandler);
-  }
-  
-  keyTapHandler(e) {
-    if (!this.patternActive) return;
-    if (this.mode === 'single') {
-      if ((e.code === "Space" || e.key === " ") && !this.keyIsDown[' ']) {
-        const now = performance.now();
-        if (!this.currentlyHolding) {
-          this.currentlyHolding = true;
-          this.holdPeriods.push({ down: now, up: null });
-        }
-        this.keyIsDown[' '] = true;
-        this.tapIndicator1.style.background = '#0f0';
-        setTimeout(() => { this.tapIndicator1.style.background = '#86e1f7'; }, 100);
-        e.preventDefault();
-      }
-    } else {
-      if ((e.key === "a" || e.key === "A") && !this.keyIsDown['a']) {
-        const now = performance.now();
-        if (!this.currentlyHoldingP1) {
-          this.currentlyHoldingP1 = true;
-          this.holdPeriodsP1.push({ down: now, up: null });
-        }
-        this.keyIsDown['a'] = true;
-        this.tapIndicator1.style.background = '#0f0';
-        setTimeout(() => { this.tapIndicator1.style.background = '#86e1f7'; }, 100);
-        e.preventDefault();
-      }
-      if ((e.key === "Enter" || e.code === "Enter") && !this.keyIsDown['Enter']) {
-        const now = performance.now();
-        if (!this.currentlyHoldingP2) {
-          this.currentlyHoldingP2 = true;
-          this.holdPeriodsP2.push({ down: now, up: null });
-        }
-        this.keyIsDown['Enter'] = true;
-        this.tapIndicator2.style.background = '#0f0';
-        setTimeout(() => { this.tapIndicator2.style.background = '#f6b8e0'; }, 100);
-        e.preventDefault();
-      }
-    }
-  }
-  
-  keyTapUpHandler(e) {
-    if (e.code === "Space" || e.key === " ") {
-      this.keyIsDown[' '] = false;
-      if (this.currentlyHolding) {
-        this.currentlyHolding = false;
-        let now = performance.now();
-        let lastHold = this.holdPeriods[this.holdPeriods.length - 1];
-        if (lastHold && lastHold.up === null) lastHold.up = now;
-      }
-    }
-    if (e.key === "a" || e.key === "A") {
-      this.keyIsDown['a'] = false;
-      if (this.currentlyHoldingP1) {
-        this.currentlyHoldingP1 = false;
-        let now = performance.now();
-        let lastHold = this.holdPeriodsP1[this.holdPeriodsP1.length - 1];
-        if (lastHold && lastHold.up === null) lastHold.up = now;
-      }
-    }
-    if (e.key === "Enter" || e.code === "Enter") {
-      this.keyIsDown['Enter'] = false;
-      if (this.currentlyHoldingP2) {
-        this.currentlyHoldingP2 = false;
-        let now = performance.now();
-        let lastHold = this.holdPeriodsP2[this.holdPeriodsP2.length - 1];
-        if (lastHold && lastHold.up === null) lastHold.up = now;
-      }
-    }
-    // Add support for 'T' key release (for rhythm engine hold tracking)
-    if (e.code === 'KeyT' && this.rhythmEngine && this.isPlaying && !this.isCountingIn) {
-      this.rhythmEngine.registerHoldEnd();
-    }
-  }
-  
-  touchTapHandler(e) {
-    if (!this.patternActive) return;
-    const now = performance.now();
-    if (this.mode === 'single') {
-      if (!this.currentlyHolding) {
-        this.currentlyHolding = true;
-        this.holdPeriods.push({ down: now, up: null });
-      }
-      this.tapIndicator1.style.background = '#0f0';
-      setTimeout(() => { this.tapIndicator1.style.background = '#86e1f7'; }, 100);
-    } else {
-      if (!this.currentlyHoldingP1) {
-        this.currentlyHoldingP1 = true;
-        this.holdPeriodsP1.push({ down: now, up: null });
-      }
-      if (!this.currentlyHoldingP2) {
-        this.currentlyHoldingP2 = true;
-        this.holdPeriodsP2.push({ down: now, up: null });
-      }
-      this.tapIndicator1.style.background = '#0f0';
-      this.tapIndicator2.style.background = '#0f0';
-      setTimeout(() => {
-        this.tapIndicator1.style.background = '#86e1f7';
-        this.tapIndicator2.style.background = '#f6b8e0';
-      }, 100);
-    }
-  }
-  
-  touchEndHandler(e) {
-    if (this.mode === 'single' && this.currentlyHolding) {
-      this.currentlyHolding = false;
-      let now = performance.now();
-      let lastHold = this.holdPeriods[this.holdPeriods.length - 1];
-      if (lastHold && lastHold.up === null) lastHold.up = now;
-    } else if (this.mode === 'multi') {
-      if (this.currentlyHoldingP1) {
-        this.currentlyHoldingP1 = false;
-        let now = performance.now();
-        let lastHold = this.holdPeriodsP1[this.holdPeriodsP1.length - 1];
-        if (lastHold && lastHold.up === null) lastHold.up = now;
-      }
-      if (this.currentlyHoldingP2) {
-        this.currentlyHoldingP2 = false;
-        let now = performance.now();
-        let lastHold = this.holdPeriodsP2[this.holdPeriodsP2.length - 1];
-        if (lastHold && lastHold.up === null) lastHold.up = now;
-      }
-    }
-  }
-  
+
   // This is where we'll add the main game logic methods
   // Game control methods
   async startGame() {
@@ -747,8 +666,6 @@ class GameController {
     // Reset score
     this.score = 0;
     this.scoreDisplay.textContent = this.score;
-    this.lastHitDisplay.textContent = '-';
-    this.lastHitDisplay.style.color = '#666';
     
     // Reset hit counts
     this.hitCounts = { perfect: 0, good: 0, miss: 0 };
@@ -761,10 +678,8 @@ class GameController {
     // Start visualizer
     this.visualizer.start();
     
-    // Start miss detection for multiplayer
-    if (this.isMultiplayer) {
-      this.startMissDetection();
-    }
+    // Start miss detection for all game modes
+    this.startMissDetection();
     
     // Store pattern end time for precise stopping
     this.patternEndTime = performance.now() + totalDuration;
@@ -841,26 +756,133 @@ class GameController {
     
     if (!this.rhythmEngine || !this.isPlaying) return;
     
+    // Prevent duplicate processing with a small debounce
+    const currentTime = Date.now() - this.rhythmEngine.startTime;
+    if (this.lastTapTime && Math.abs(currentTime - this.lastTapTime) < 50) {
+      console.log("DEBUG: Ignoring duplicate tap (too close to previous)");
+      return;
+    }
+    this.lastTapTime = currentTime;
+    
     // Register the tap with the rhythm engine
     this.rhythmEngine.registerHoldStart();
     
     // Provide immediate visual feedback
-    const currentTime = Date.now() - this.rhythmEngine.startTime;
     this.showTapFeedback(currentTime, player);
   }
   
+  // Check if a tap occurs during a rest timing window
+  checkForRestViolation(tapTime) {
+    if (!this.rhythmEngine || !this.rhythmEngine.isPlaying) return null;
+    
+    console.log(`DEBUG: checkForRestViolation tapTime=${tapTime}`);
+    console.log(`DEBUG: pattern length=${this.rhythmEngine.pattern.length}`);
+    console.log(`DEBUG: expectedTimes=`, this.rhythmEngine.expectedTimes);
+    
+    const toleranceWindow = 85; // Same as note detection tolerance
+    
+    // Check each rest in the pattern
+    for (let index = 0; index < this.rhythmEngine.pattern.length; index++) {
+      const note = this.rhythmEngine.pattern[index];
+      const expectedTime = this.rhythmEngine.expectedTimes[index];
+      const isRest = note && note.rest;
+      
+      console.log(`DEBUG: Beat ${index} (Musical Beat ${index + 1}): expectedTime=${expectedTime}, isRest=${isRest}, noteType=${note ? note.type : 'undefined'}`);
+      
+      // Only check rest notes
+      if (!isRest) continue;
+      
+      const restDuration = this.rhythmEngine.getNoteDuration(note);
+      
+      // Calculate rest window end time, but don't let it overlap with next note
+      let restWindowEnd = expectedTime + restDuration + toleranceWindow;
+      
+      // Check if there's a next note and limit rest window to avoid overlap
+      if (index + 1 < this.rhythmEngine.expectedTimes.length) {
+        const nextNoteTime = this.rhythmEngine.expectedTimes[index + 1];
+        const nextNoteEarlyWindow = nextNoteTime - toleranceWindow;
+        
+        // Rest window should end before next note's early timing window
+        restWindowEnd = Math.min(restWindowEnd, nextNoteEarlyWindow);
+        
+        console.log(`DEBUG: Rest ${index} - Limited by next note at ${nextNoteTime}ms, restWindowEnd capped at ${restWindowEnd}ms`);
+      }
+      
+      const timeDiff = Math.abs(tapTime - expectedTime);
+      
+      console.log(`DEBUG: Rest ${index} - expectedTime=${expectedTime}, restDuration=${restDuration}, restWindowEnd=${restWindowEnd}, timeDiff=${timeDiff}, toleranceWindow=${toleranceWindow}`);
+      
+      // Check if tap is within this rest's timing window (with proper boundaries)
+      if (tapTime >= expectedTime - toleranceWindow && 
+          tapTime <= restWindowEnd) {
+        console.log(`DEBUG: REST VIOLATION DETECTED at index ${index} (Musical Beat ${index + 1})`);
+        return {
+          restIndex: index,
+          musicalBeat: index + 1, // Convert to musical beat number
+          expectedTime: expectedTime,
+          restDuration: restDuration,
+          timing: tapTime - expectedTime
+        };
+      }
+    }
+    
+    console.log(`DEBUG: No rest violation detected for tapTime=${tapTime}`);
+    return null; // No rest violation
+  }
+  
+  // Handle rest violation with educational feedback
+  handleRestViolation(restInfo, player = 'player1') {
+    const penalty = 15; // Small educational penalty
+    
+    console.log(`${player} tapped during rest ${restInfo.restIndex} (timing: ${Math.round(restInfo.timing)}ms off)`);
+    
+    if (this.isMultiplayer) {
+      // Multiplayer rest violation
+      this.scores[player] -= penalty;
+      this.restViolationsMP[player]++;
+      this.updateMultiplayerDisplays();
+      console.log(`${player} rest violation! Score: ${this.scores[player]}`);
+    } else {
+      // Single player rest violation
+      this.score -= penalty;
+      this.restViolations++;
+      this.scoreDisplay.textContent = this.score;
+      
+      console.log(`Single player rest violation! Score: ${this.score}`);
+    }
+    
+    // Visual feedback: briefly flash rest area with warning color
+    if (this.visualizer) {
+      this.visualizer.flashRestWarning(restInfo.restIndex);
+    }
+  }
+  
   showTapFeedback(tapTime, player = 'player1') {
-    // Find the closest expected note
+    // First check if this tap is during a rest
+    const restViolation = this.checkForRestViolation(tapTime);
+    if (restViolation) {
+      this.handleRestViolation(restViolation, player);
+      return; // Don't process as normal hit/miss
+    }
+    
+    // Find the closest expected note (only non-rest notes)
     let closestIndex = -1;
     let closestDiff = Infinity;
     
     this.rhythmEngine.expectedTimes.forEach((expectedTime, index) => {
+      // Skip rest notes when finding closest note
+      if (this.rhythmEngine.pattern[index] && this.rhythmEngine.pattern[index].rest) {
+        return;
+      }
+      
       const diff = Math.abs(tapTime - expectedTime);
       if (diff < closestDiff) {
         closestDiff = diff;
         closestIndex = index;
       }
     });
+    
+    console.log(`showTapFeedback: tapTime=${tapTime}, closestIndex=${closestIndex}, closestDiff=${closestDiff}`);
     
     if (closestIndex !== -1) {
       // Create unique identifier for this player-note combination
@@ -874,6 +896,7 @@ class GameController {
       
       // Mark this note as scored by this player
       this.scoredNotes.add(noteKey);
+      console.log(`${player} scored note ${closestIndex} with key ${noteKey}`);
       
       // Score this tap - but don't let it affect the rhythm engine state for other players
       let result;
@@ -920,13 +943,6 @@ class GameController {
         this.score += points;
         this.hitCounts[result.result]++;
         
-        // Update single player feedback display
-        let feedbackText = `${result.result.toUpperCase()} (${Math.round(result.timing)}ms off)`;
-        let feedbackColor = result.result === 'perfect' ? '#4CAF50' : 
-                           result.result === 'good' ? '#FF9800' : '#f44336';
-        
-        this.lastHitDisplay.textContent = feedbackText;
-        this.lastHitDisplay.style.color = feedbackColor;
         this.scoreDisplay.textContent = this.score;
         this.updateHitSummary();
         
