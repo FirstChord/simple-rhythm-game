@@ -7,7 +7,6 @@ class VisualMetronome {
     this.animationId = null;
     this.startTime = 0;
     this.currentBeat = 0;
-    this.isPaused = false;
     
     this.createElements();
   }
@@ -120,8 +119,6 @@ class VisualMetronome {
   
   // Animation loop
   animate() {
-    if (this.isPaused) return;
-    
     const now = performance.now();
     const elapsed = now - this.startTime;
     const beatProgress = (elapsed % this.beatInterval) / this.beatInterval;
@@ -190,27 +187,6 @@ class VisualMetronome {
     this.counterEl.textContent = '-';
     this.indicatorEl.classList.remove('pulse', 'downbeat');
     this.dots.forEach(dot => dot.classList.remove('active', 'downbeat'));
-  }
-  
-  // Pause metronome (for page visibility changes)
-  pause() {
-    this.isPaused = true;
-    if (this.animationId) {
-      cancelAnimationFrame(this.animationId);
-      this.animationId = null;
-    }
-  }
-  
-  // Resume metronome with timing adjustment
-  resume(pauseDuration) {
-    if (!this.isPaused) return;
-    
-    this.isPaused = false;
-    // Adjust start time to account for pause
-    this.startTime += pauseDuration;
-    
-    // Resume animation
-    this.animate();
   }
   
   // Flash feedback for user input

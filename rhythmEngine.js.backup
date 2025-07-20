@@ -72,7 +72,7 @@ class RhythmEngine {
   
   // Start playback tracking
   start() {
-    this.startTime = performance.now();
+    this.startTime = Date.now();
     this.isPlaying = true;
     this.holdPeriods = [];
   }
@@ -86,7 +86,7 @@ class RhythmEngine {
   registerHoldStart() {
     if (!this.isPlaying) return;
     
-    const now = performance.now() - this.startTime;
+    const now = Date.now() - this.startTime;
     this.holdPeriods.push({
       down: now,
       up: null
@@ -97,7 +97,7 @@ class RhythmEngine {
   registerHoldEnd() {
     if (!this.isPlaying) return;
     
-    const now = performance.now() - this.startTime;
+    const now = Date.now() - this.startTime;
     const lastHold = this.holdPeriods[this.holdPeriods.length - 1];
     
     if (lastHold && lastHold.up === null) {
@@ -241,7 +241,7 @@ class RhythmEngine {
     
     // Find a hold period that covers this group
     for (const hold of this.holdPeriods) {
-      const holdEnd = hold.up === null ? performance.now() - this.startTime : hold.up;
+      const holdEnd = hold.up === null ? Date.now() - this.startTime : hold.up;
       
       // Check if hold covers the full group (with tolerance)
       if (hold.down <= startTime + this.scoringWindows.good &&
@@ -339,7 +339,7 @@ class RhythmEngine {
   getCurrentBeat() {
     if (!this.isPlaying) return -1;
     
-    const elapsed = performance.now() - this.startTime;
+    const elapsed = Date.now() - this.startTime;
     const beat = Math.floor(elapsed / this.beatInterval) % 4;
     return beat;
   }
@@ -348,7 +348,7 @@ class RhythmEngine {
   isInTimingWindow(noteIndex) {
     if (!this.isPlaying || noteIndex >= this.expectedTimes.length) return false;
     
-    const now = performance.now() - this.startTime;
+    const now = Date.now() - this.startTime;
     const expected = this.expectedTimes[noteIndex];
     const diff = Math.abs(now - expected);
     

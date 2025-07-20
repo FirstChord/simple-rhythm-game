@@ -7,7 +7,6 @@ class PatternVisualizer {
     this.expectedTimes = [];
     this.startTime = 0;
     this.isPlaying = false;
-    this.isPaused = false;
     this.animationId = null;
     this.currentNoteIndex = -1;
     
@@ -244,7 +243,7 @@ class PatternVisualizer {
   
   // Animation loop
   animate() {
-    if (!this.isPlaying || this.isPaused) return;
+    if (!this.isPlaying) return;
     
     const elapsed = performance.now() - this.startTime;
     
@@ -318,29 +317,6 @@ class PatternVisualizer {
     this.currentBeatEl.textContent = 'Complete';
     this.currentBeatEl.classList.remove('pulse', 'rest');
     this.beatTypeEl.textContent = '';
-  }
-  
-  // Pause visualization (for page visibility changes)
-  pause() {
-    this.isPaused = true;
-    if (this.animationId) {
-      cancelAnimationFrame(this.animationId);
-      this.animationId = null;
-    }
-  }
-  
-  // Resume visualization with timing adjustment
-  resume(pauseDuration) {
-    if (!this.isPaused) return;
-    
-    this.isPaused = false;
-    // Adjust start time to account for pause
-    this.startTime += pauseDuration;
-    
-    // Resume animation
-    if (this.isPlaying) {
-      this.animate();
-    }
   }
   
   // Flash feedback on a specific note

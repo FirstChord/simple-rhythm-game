@@ -86,11 +86,6 @@ class GameController {
     this.missCheckTimer = null;
     this.lastCheckedNoteIndex = -1;
     
-    // Page visibility handling for timing accuracy
-    this.wasHidden = false;
-    this.pausedTime = 0;
-    this.totalPausedDuration = 0;
-    
     // Initialize audio system
     this.audio = new SimpleAudio();
     
@@ -194,11 +189,6 @@ class GameController {
           this.handleInput('player2');
         }
       }
-    });
-    
-    // Page visibility handling to prevent timing drift
-    document.addEventListener('visibilitychange', () => {
-      this.handleVisibilityChange();
     });
   }
   
@@ -322,7 +312,7 @@ class GameController {
   checkForMissedNotes() {
     if (!this.rhythmEngine || !this.rhythmEngine.isPlaying) return;
     
-    const currentTime = performance.now() - this.rhythmEngine.startTime;
+    const currentTime = Date.now() - this.rhythmEngine.startTime;
     const missWindow = 170; // Same as "good" timing window
     
     console.log(`DEBUG: Miss check at time ${currentTime}ms, lastCheckedNoteIndex=${this.lastCheckedNoteIndex}`);
@@ -652,11 +642,6 @@ class GameController {
     this.isPlaying = true;
     this.gameStatus.textContent = "Playing...";
     
-    // Reset page visibility tracking for new game
-    this.wasHidden = false;
-    this.pausedTime = 0;
-    this.totalPausedDuration = 0;
-    
     // Initialize rhythm engine
     if (!this.rhythmEngine) {
       this.rhythmEngine = new RhythmEngine(this.currentTempo);
@@ -772,7 +757,7 @@ class GameController {
     if (!this.rhythmEngine || !this.isPlaying) return;
     
     // Prevent duplicate processing with a small debounce
-    const currentTime = performance.now() - this.rhythmEngine.startTime;
+    const currentTime = Date.now() - this.rhythmEngine.startTime;
     if (this.lastTapTime && Math.abs(currentTime - this.lastTapTime) < 50) {
       console.log("DEBUG: Ignoring duplicate tap (too close to previous)");
       return;
@@ -969,89 +954,6 @@ class GameController {
         this.visualizer.flashNoteFeedback(closestIndex, result.result);
       }
     }
-  }
-
-  // Handle page visibility changes to prevent timing drift
-  handleVisibilityChange() {
-    if (document.hidden) {
-      // Page became hidden - pause if playing
-      if (this.isPlaying && !this.wasHidden) {
-        console.log('Page hidden - pausing game to prevent timing drift');
-        this.pauseForVisibility();
-      }
-    } else {
-      // Page became visible - resume if was paused
-      if (this.isPlaying && this.wasHidden) {
-        console.log('Page visible - resuming game');
-        this.resumeFromVisibility();
-      }
-    }
-  }
-  
-  // Pause game components when page becomes hidden
-  pauseForVisibility() {
-    this.wasHidden = true;
-    this.pausedTime = performance.now();
-    
-    // Pause all timing-dependent components
-    if (this.rhythmEngine && this.rhythmEngine.isPlaying) {
-      // Don't stop the engine, just mark the pause time
-      console.log('Recording pause time for timing adjustment');
-    }
-    
-    // Pause visual components
-    if (this.visualizer) {
-      this.visualizer.pause();
-    }
-    
-    if (this.metronome) {
-      this.metronome.pause();
-    }
-    
-    // Update UI to show paused state
-    if (this.gameStatus && this.isPlaying) {
-      this.gameStatus.textContent = "Game paused (tab hidden)";
-    }
-  }
-  
-  // Resume game components when page becomes visible
-  resumeFromVisibility() {
-    if (!this.wasHidden) return;
-    
-    const now = performance.now();
-    const pauseDuration = now - this.pausedTime;
-    this.totalPausedDuration += pauseDuration;
-    
-    console.log(`Resuming after ${Math.round(pauseDuration)}ms pause (total paused: ${Math.round(this.totalPausedDuration)}ms)`);
-    
-    // Adjust timing in all components to account for pause
-    if (this.rhythmEngine && this.rhythmEngine.isPlaying) {
-      // Adjust the rhythm engine's start time to account for pause
-      this.rhythmEngine.startTime += pauseDuration;
-      console.log('Adjusted rhythm engine start time by', Math.round(pauseDuration), 'ms');
-    }
-    
-    // Adjust pattern end time
-    if (this.patternEndTime) {
-      this.patternEndTime += pauseDuration;
-      console.log('Adjusted pattern end time by', Math.round(pauseDuration), 'ms');
-    }
-    
-    // Resume visual components with adjusted timing
-    if (this.visualizer) {
-      this.visualizer.resume(pauseDuration);
-    }
-    
-    if (this.metronome) {
-      this.metronome.resume(pauseDuration);
-    }
-    
-    // Update UI
-    if (this.gameStatus && this.isPlaying) {
-      this.gameStatus.textContent = "Playing...";
-    }
-    
-    this.wasHidden = false;
   }
 }
 
