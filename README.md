@@ -25,14 +25,31 @@ A browser-based interactive rhythm game featuring visual metronome, pattern visu
 - **Responsive design** - Works on desktop and mobile devices
 - **Single-screen layout** - No scrolling required, fits in 100vh
 - **Keyboard controls** - Press 'T' key to tap along with the rhythm
+- **Duration scoring** - Bonus points for holding notes the right length of time
+- **Multiplayer mode** - Two-player competition (A and K keys)
+
+### Advanced Features (Phase 3)
+
+- **Natural Duration Scoring** - Get bonus points for holding notes naturally
+  - Hold notes for the right duration to earn extra points
+  - "Good Hold" bonuses for decent timing (5 points)
+  - "Perfect Hold" bonuses for excellent timing (10 points)
+  - Visual feedback with golden highlighting for excellent holds
+- **Balance Testing Panel** - Fine-tune the duration scoring system
+  - Adjust timing windows for good and perfect holds
+  - Customize bonus point values
+  - Enable/disable duration features
+  - Quick test scenarios for immediate feedback
 
 ## How to Play 🎮
 
 1. **Choose your settings**: Adjust tempo and select a rhythm pattern
 2. **Hit "Start Game"**: Listen/watch the 4-beat count-in
 3. **Follow the pattern**: Tap 'T' key when you see rhythm blocks
-4. **Skip the rests**: Don't tap during rest periods
-5. **Get feedback**: See your score and timing accuracy
+4. **Hold notes naturally**: Keep the key pressed for the right duration to earn bonus points
+5. **Skip the rests**: Don't tap during rest periods
+6. **Get feedback**: See your score and timing accuracy
+7. **Try the balance panel**: Click "Show" under "Duration Scoring - Balance Testing" to experiment with scoring settings
 
 ## Rhythm Patterns 🎼
 

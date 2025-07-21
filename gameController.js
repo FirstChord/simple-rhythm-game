@@ -28,7 +28,6 @@ class GameController {
     this.beatHitResultsP1 = [];
     this.beatHitResultsP2 = [];
     this.keyIsDown = {};
-    this.lastTapTime = { 'a': 0, 'Enter': 0, ' ': 0 };
     
     // Multiplayer state
     this.totalGames = 3;
@@ -91,6 +90,39 @@ class GameController {
     this.pausedTime = 0;
     this.totalPausedDuration = 0;
     
+    // Per-player duplicate prevention tracking
+    this.lastTapTimeByPlayer = {};
+    
+    // Phase 3.1: Duration tracking for hold detection
+    this.holdStartTimes = {}; // Track when each player started holding
+    this.holdDurations = {};  // Track calculated hold durations
+    
+    // Debug configuration
+    this.debugMode = false; // Set to true to see detailed console logs
+    
+    // Phase 3.4: Duration scoring configuration
+    this.DURATION_CONFIG = {
+      // Which notes count for duration
+      durationNotes: ['quarter', 'half'],  // Maybe add 'whole' later
+      
+      // How forgiving is "good" duration
+      goodWindow: { min: 0.5, max: 2.0 },  // 50% to 200% of ideal
+      
+      // How tight is "perfect" duration  
+      perfectWindow: { min: 0.7, max: 1.3 },  // 70% to 130% of ideal
+      
+      // Bonus points
+      goodBonus: { perfect: 5, good: 3 },
+      perfectBonus: { perfect: 10, good: 5 },
+      
+      // Visual feedback
+      showBonusText: true,
+      showHoldIndicator: true,
+      
+      // Easy on/off switch
+      isEnabled: true
+    };
+    
     // Initialize audio system
     this.audio = new SimpleAudio();
     
@@ -132,6 +164,25 @@ class GameController {
     
     // Initialize VexFlow display BEFORE loading pattern preview
     this.vexDisplay = new VexFlowDisplay(document.getElementById('notation-container'));
+    
+    // Balance testing elements
+    this.balancePanel = document.getElementById('balance-testing');
+    this.toggleBalanceBtn = document.getElementById('toggle-balance-panel');
+    this.durationEnabledCheck = document.getElementById('duration-enabled');
+    this.bonusTextCheck = document.getElementById('bonus-text');
+    this.holdIndicatorCheck = document.getElementById('hold-indicator');
+    this.goodMinSlider = document.getElementById('good-min');
+    this.goodMaxSlider = document.getElementById('good-max');
+    this.perfectMinSlider = document.getElementById('perfect-min');
+    this.perfectMaxSlider = document.getElementById('perfect-max');
+    this.goodBonusInput = document.getElementById('good-bonus');
+    this.perfectBonusInput = document.getElementById('perfect-bonus');
+    this.applyConfigBtn = document.getElementById('apply-config');
+    this.resetConfigBtn = document.getElementById('reset-config');
+    this.testScenarioBtn = document.getElementById('test-scenario');
+    
+    // Initialize balance testing controls
+    this.initializeBalanceTestingControls();
     
     // Load initial pattern preview
     this.loadPatternPreview();
@@ -196,10 +247,144 @@ class GameController {
       }
     });
     
+    // Phase 3.1: Add keyup handler for hold duration detection
+    document.addEventListener('keyup', (e) => {
+      if (this.isPlaying && !this.isCountingIn) {
+        let player = null;
+        
+        // Determine which player released their key
+        if (!this.isMultiplayer && e.code === 'KeyT') {
+          player = 'player1';
+        } else if (this.isMultiplayer && e.code === 'KeyA') {
+          player = 'player1';
+        } else if (this.isMultiplayer && e.code === 'KeyK') {
+          player = 'player2';
+        }
+        
+        if (player) {
+          this.handleRelease(player);
+        }
+      }
+    });
+    
     // Page visibility handling to prevent timing drift
     document.addEventListener('visibilitychange', () => {
       this.handleVisibilityChange();
     });
+    
+    // Balance testing event handlers
+    this.bindBalanceTestingEvents();
+  }
+  
+  // Phase 3.4: Initialize balance testing controls
+  initializeBalanceTestingControls() {
+    // Set initial values from config
+    this.durationEnabledCheck.checked = this.DURATION_CONFIG.isEnabled;
+    this.bonusTextCheck.checked = this.DURATION_CONFIG.showBonusText;
+    this.holdIndicatorCheck.checked = this.DURATION_CONFIG.showHoldIndicator;
+    
+    this.goodMinSlider.value = this.DURATION_CONFIG.goodWindow.min;
+    this.goodMaxSlider.value = this.DURATION_CONFIG.goodWindow.max;
+    this.perfectMinSlider.value = this.DURATION_CONFIG.perfectWindow.min;
+    this.perfectMaxSlider.value = this.DURATION_CONFIG.perfectWindow.max;
+    
+    this.goodBonusInput.value = this.DURATION_CONFIG.goodBonus.perfect;
+    this.perfectBonusInput.value = this.DURATION_CONFIG.perfectBonus.perfect;
+    
+    // Update display values
+    this.updateBalanceDisplayValues();
+  }
+  
+  // Phase 3.4: Bind balance testing event handlers
+  bindBalanceTestingEvents() {
+    // Toggle panel visibility
+    this.toggleBalanceBtn.addEventListener('click', () => {
+      const isVisible = this.balancePanel.style.display !== 'none';
+      this.balancePanel.style.display = isVisible ? 'none' : 'block';
+      this.toggleBalanceBtn.textContent = isVisible ? 'Show' : 'Hide';
+    });
+    
+    // Real-time slider updates
+    this.goodMinSlider.addEventListener('input', () => this.updateBalanceDisplayValues());
+    this.goodMaxSlider.addEventListener('input', () => this.updateBalanceDisplayValues());
+    this.perfectMinSlider.addEventListener('input', () => this.updateBalanceDisplayValues());
+    this.perfectMaxSlider.addEventListener('input', () => this.updateBalanceDisplayValues());
+    
+    // Apply configuration changes
+    this.applyConfigBtn.addEventListener('click', () => this.applyBalanceConfig());
+    
+    // Reset to defaults
+    this.resetConfigBtn.addEventListener('click', () => this.resetBalanceConfig());
+    
+    // Quick test scenario
+    this.testScenarioBtn.addEventListener('click', () => this.runQuickTest());
+  }
+  
+  // Phase 3.4: Update display values for sliders
+  updateBalanceDisplayValues() {
+    document.getElementById('good-min-value').textContent = this.goodMinSlider.value;
+    document.getElementById('good-max-value').textContent = this.goodMaxSlider.value;
+    document.getElementById('perfect-min-value').textContent = this.perfectMinSlider.value;
+    document.getElementById('perfect-max-value').textContent = this.perfectMaxSlider.value;
+  }
+  
+  // Phase 3.4: Apply balance configuration
+  applyBalanceConfig() {
+    this.DURATION_CONFIG.isEnabled = this.durationEnabledCheck.checked;
+    this.DURATION_CONFIG.showBonusText = this.bonusTextCheck.checked;
+    this.DURATION_CONFIG.showHoldIndicator = this.holdIndicatorCheck.checked;
+    
+    this.DURATION_CONFIG.goodWindow.min = parseFloat(this.goodMinSlider.value);
+    this.DURATION_CONFIG.goodWindow.max = parseFloat(this.goodMaxSlider.value);
+    this.DURATION_CONFIG.perfectWindow.min = parseFloat(this.perfectMinSlider.value);
+    this.DURATION_CONFIG.perfectWindow.max = parseFloat(this.perfectMaxSlider.value);
+    
+    this.DURATION_CONFIG.goodBonus.perfect = parseInt(this.goodBonusInput.value);
+    this.DURATION_CONFIG.perfectBonus.perfect = parseInt(this.perfectBonusInput.value);
+    
+    console.log('🔧 Duration scoring config updated:', this.DURATION_CONFIG);
+    alert('Configuration applied! New settings will take effect for the next notes.');
+  }
+  
+  // Phase 3.4: Reset to default configuration
+  resetBalanceConfig() {
+    // Reset to original defaults
+    this.DURATION_CONFIG = {
+      isEnabled: true,
+      showBonusText: true,
+      showHoldIndicator: true,
+      defaultDuration: 400,
+      goodWindow: { min: 0.5, max: 2.0 },
+      perfectWindow: { min: 0.7, max: 1.3 },
+      goodBonus: { perfect: 5 },
+      perfectBonus: { perfect: 10 }
+    };
+    
+    // Update UI controls
+    this.initializeBalanceTestingControls();
+    
+    console.log('🔧 Duration scoring config reset to defaults');
+    alert('Configuration reset to defaults!');
+  }
+  
+  // Phase 3.4: Run a quick test scenario
+  runQuickTest() {
+    if (this.isPlaying) {
+      alert('Stop the current game first!');
+      return;
+    }
+    
+    // Set a simple test pattern and medium tempo
+    this.patternSelect.value = 'basic-1';
+    this.tempoSlider.value = '100';
+    this.currentTempo = 100;
+    this.tempoValue.textContent = '100';
+    
+    // Start the game
+    this.startGame();
+    
+    console.log('🧪 Quick test started! Try holding notes for different durations to test the scoring.');
+    alert('Quick test started! Try holding notes (T key) for different durations to see how the duration bonuses work.');
   }
   
   // Helper methods
@@ -273,6 +458,13 @@ class GameController {
     this.lastCheckedNoteIndex = -1;
     this.stopMissDetection();
     
+    // Reset per-player tap times for debounce
+    this.lastTapTimeByPlayer = {};
+    
+    // Phase 3.1: Reset hold tracking
+    this.holdStartTimes = {};
+    this.holdDurations = {};
+    
     // Clear winning highlights
     const player1Element = document.querySelector('.player-score:first-child');
     const player2Element = document.querySelector('.player-score:last-child');
@@ -319,95 +511,86 @@ class GameController {
   }
   
   // Check for missed notes (notes that passed their timing window)
-  checkForMissedNotes() {
+  checkForMisses() {
     if (!this.rhythmEngine || !this.rhythmEngine.isPlaying) return;
     
     const currentTime = performance.now() - this.rhythmEngine.startTime;
-    const missWindow = 170; // Same as "good" timing window
+    // console.log(`DEBUG: Miss check at time ${currentTime}ms, lastCheckedNoteIndex=${this.lastCheckedNoteIndex}`);
     
-    console.log(`DEBUG: Miss check at time ${currentTime}ms, lastCheckedNoteIndex=${this.lastCheckedNoteIndex}`);
-    
-    // Check each note to see if its timing window has passed
-    this.rhythmEngine.expectedTimes.forEach((expectedTime, index) => {
-      // Only check notes we haven't processed yet
-      if (index <= this.lastCheckedNoteIndex) return;
+    for (let index = this.lastCheckedNoteIndex + 1; index < this.rhythmEngine.pattern.length; index++) {
+      const expectedTime = this.rhythmEngine.expectedTimes[index];
+      const note = this.rhythmEngine.pattern[index];
       
-      // Skip rest notes - they can't be missed since you shouldn't tap them
-      if (this.rhythmEngine.pattern[index] && this.rhythmEngine.pattern[index].rest) {
-        console.log(`DEBUG: Skipping rest note ${index} at ${expectedTime}ms`);
-        // DON'T update lastCheckedNoteIndex here - let it continue checking subsequent notes
-        return;
+      if (note && note.rest) {
+        // console.log(`DEBUG: Skipping rest note ${index} at ${expectedTime}ms`);
+        continue;
       }
       
-      console.log(`DEBUG: Checking note ${index}: expectedTime=${expectedTime}ms, currentTime=${currentTime}ms, missWindow=${missWindow}ms`);
+      // console.log(`DEBUG: Checking note ${index}: expectedTime=${expectedTime}ms, currentTime=${currentTime}ms, missWindow=${missWindow}ms`);
       
-      // Check if this note's timing window has passed
+      const missWindow = this.rhythmEngine.missWindow;
+      
       if (currentTime > expectedTime + missWindow) {
-        console.log(`DEBUG: Note ${index} timing window expired (${currentTime}ms > ${expectedTime + missWindow}ms)`);
+        // Note timing window has expired
+        if (this.debugMode) {
+          console.log(`DEBUG: Note ${index} timing window expired (${currentTime}ms > ${expectedTime + missWindow}ms)`);
+        }
         
+        // Check if note was scored
         if (this.isMultiplayer) {
-          // Multiplayer mode: check each player separately
+          // In multiplayer, check both players
           const player1Key = `player1-${index}`;
           const player2Key = `player2-${index}`;
+          const player1Scored = this.scoredNotes.has(player1Key);
+          const player2Scored = this.scoredNotes.has(player2Key);
           
-          if (!this.scoredNotes.has(player1Key)) {
-            // Player 1 missed this note
-            this.scoredNotes.add(player1Key);
+          if (!player1Scored) {
             this.hitCountsMP.player1.miss++;
-            console.log(`Player 1 missed note ${index} (expected at ${expectedTime}ms, now ${currentTime}ms)`);
-            
-            // Show visual feedback for misses
-            if (this.visualizer) {
-              this.visualizer.flashNoteFeedback(index, 'miss');
-            }
+            setTimeout(() => {
+              if (this.visualizer) {
+                this.visualizer.flashNoteFeedback(index, 'miss');
+              }
+            }, 50);
           }
           
-          if (!this.scoredNotes.has(player2Key)) {
-            // Player 2 missed this note
-            this.scoredNotes.add(player2Key);
+          if (!player2Scored) {
             this.hitCountsMP.player2.miss++;
-            console.log(`Player 2 missed note ${index} (expected at ${expectedTime}ms, now ${currentTime}ms)`);
-            
-            // Show visual feedback for misses (only once)
-            if (this.visualizer && !this.scoredNotes.has(player1Key)) {
-              this.visualizer.flashNoteFeedback(index, 'miss');
-            }
           }
-          
-          // Update multiplayer display
-          this.updateMultiplayerDisplays();
         } else {
-          // Single player mode: check if player hit this note
+          // Single player check
           const playerKey = `player1-${index}`;
-          
-          console.log(`DEBUG: Single player check - note ${index}, playerKey=${playerKey}, scored=${this.scoredNotes.has(playerKey)}`);
+          if (this.debugMode) {
+            console.log(`DEBUG: Single player check - note ${index}, playerKey=${playerKey}, scored=${this.scoredNotes.has(playerKey)}`);
+          }
           
           if (!this.scoredNotes.has(playerKey)) {
-            // Player missed this note
-            this.scoredNotes.add(playerKey);
             this.hitCounts.miss++;
-            console.log(`Single player missed note ${index} (expected at ${expectedTime}ms, now ${currentTime}ms)`);
-            console.log(`Calling visual feedback for missed note ${index}`);
-            
-            // Update single player display
             this.updateHitSummary();
             
-            // Show visual feedback for misses (with small delay to avoid confusion with rest violations)
-            if (this.visualizer) {
+            if (this.debugMode) {
               console.log(`DEBUG: Scheduling visual feedback for missed note ${index}`);
-              setTimeout(() => {
-                console.log(`DEBUG: Executing visual feedback for missed note ${index}`);
-                this.visualizer.flashNoteFeedback(index, 'miss');
-              }, 200);
             }
+            setTimeout(() => {
+              if (this.debugMode) {
+                console.log(`DEBUG: Executing visual feedback for missed note ${index}`);
+              }
+              if (this.visualizer) {
+                this.visualizer.flashNoteFeedback(index, 'miss');
+              }
+            }, 50);
           } else {
-            console.log(`DEBUG: Note ${index} already scored, skipping miss detection`);
+            if (this.debugMode) {
+              console.log(`DEBUG: Note ${index} already scored, skipping miss detection`);
+            }
           }
         }
         
         this.lastCheckedNoteIndex = index;
+      } else {
+        // Haven't reached this note's miss window yet, stop checking
+        break;
       }
-    });
+    }
   }
   
   // Start miss detection timer for all game modes
@@ -418,7 +601,7 @@ class GameController {
     
     this.lastCheckedNoteIndex = -1;
     this.missCheckTimer = setInterval(() => {
-      this.checkForMissedNotes();
+      this.checkForMisses();
     }, 50); // Check every 50ms
   }
   
@@ -495,7 +678,8 @@ class GameController {
   // Calculate when each note should occur
   calculateExpectedTimes(pattern, beatInterval) {
     const times = [];
-    let currentTime = 0;
+    // Add reaction time buffer to first beat (300ms seems reasonable)
+    let currentTime = 300; // Start first beat at 300ms instead of 0ms
     
     for (const note of pattern) {
       times.push(currentTime);
@@ -731,6 +915,26 @@ class GameController {
     // Stop miss detection
     this.stopMissDetection();
     
+    // Phase 3 Enhancement: Apply final beat bonus before stopping
+    if (this.DURATION_CONFIG.isEnabled) {
+      // Apply any pending hold bonuses for both players
+      if (!this.isMultiplayer) {
+        if (this.holdDurations.player1) {
+          this.applyPreviousHoldBonus('player1');
+          console.log('🏁 Applied final beat bonus for single player');
+        }
+      } else {
+        if (this.holdDurations.player1) {
+          this.applyPreviousHoldBonus('player1');
+          console.log('🏁 Applied final beat bonus for player 1');
+        }
+        if (this.holdDurations.player2) {
+          this.applyPreviousHoldBonus('player2');
+          console.log('🏁 Applied final beat bonus for player 2');
+        }
+      }
+    }
+    
     // Stop rhythm engine
     if (this.rhythmEngine) {
       this.rhythmEngine.stop();
@@ -771,13 +975,22 @@ class GameController {
     
     if (!this.rhythmEngine || !this.isPlaying) return;
     
-    // Prevent duplicate processing with a small debounce
+    // Prevent duplicate processing with per-player debounce
     const currentTime = performance.now() - this.rhythmEngine.startTime;
-    if (this.lastTapTime && Math.abs(currentTime - this.lastTapTime) < 50) {
-      console.log("DEBUG: Ignoring duplicate tap (too close to previous)");
+    const lastTapTimeForPlayer = this.lastTapTimeByPlayer[player] || 0;
+    if (lastTapTimeForPlayer && Math.abs(currentTime - lastTapTimeForPlayer) < 50) {
+      if (this.debugMode) {
+        console.log("DEBUG: Ignoring duplicate tap from", player, "(too close to previous)");
+      }
       return;
     }
-    this.lastTapTime = currentTime;
+    this.lastTapTimeByPlayer[player] = currentTime;
+    
+    // Phase 3.1: Track hold start time for duration calculation
+    this.holdStartTimes[player] = currentTime;
+    
+    // Phase 3.4: Apply duration bonus to previous note if available
+    this.applyPreviousHoldBonus(player);
     
     // Register the tap with the rhythm engine
     this.rhythmEngine.registerHoldStart();
@@ -786,13 +999,158 @@ class GameController {
     this.showTapFeedback(currentTime, player);
   }
   
+  // Phase 3.1: Handle key release for duration detection
+  handleRelease(player) {
+    if (!this.isPlaying || !this.holdStartTimes[player]) return;
+    
+    const releaseTime = performance.now() - this.rhythmEngine.startTime;
+    const holdDuration = releaseTime - this.holdStartTimes[player];
+    
+    // Store the calculated duration
+    this.holdDurations[player] = holdDuration;
+    
+    // Clear the hold start time
+    this.holdStartTimes[player] = null;
+  }
+  
+  // Phase 3.2.1: Duration bonus helper functions
+  isDurationNote(note) {
+    // Only quarter notes and half notes count for duration
+    return note && this.DURATION_CONFIG.durationNotes.includes(note.type);
+  }
+  
+  getIdealDuration(note) {
+    if (!note || !this.rhythmEngine) return this.DURATION_CONFIG.defaultDuration;
+    
+    if (note.type === 'quarter') return this.rhythmEngine.beatInterval;
+    if (note.type === 'half') return this.rhythmEngine.beatInterval * 2;
+    return this.DURATION_CONFIG.defaultDuration;
+  }
+  
+  // Phase 3.4: Apply duration bonus to the previous note when new note is pressed
+  applyPreviousHoldBonus(player) {
+    if (!this.DURATION_CONFIG.isEnabled || !this.holdDurations[player]) return;
+    
+    // Find the most recent note this player scored
+    let lastScoredNoteIndex = -1;
+    for (let i = this.rhythmEngine.pattern.length - 1; i >= 0; i--) {
+      const playerKey = `${player}-${i}`;
+      if (this.scoredNotes.has(playerKey)) {
+        lastScoredNoteIndex = i;
+        break;
+      }
+    }
+    
+    if (lastScoredNoteIndex === -1) return;
+    
+    const previousNote = this.rhythmEngine.pattern[lastScoredNoteIndex];
+    if (!this.isDurationNote(previousNote)) return;
+    
+    const idealDuration = this.getIdealDuration(previousNote);
+    const holdDuration = this.holdDurations[player];
+    const durationRatio = holdDuration / idealDuration;
+    
+    if (this.debugMode) {
+      console.log(`🔄 Retroactive bonus check for beat ${lastScoredNoteIndex + 1}: held ${holdDuration.toFixed(0)}ms (ideal ${idealDuration.toFixed(0)}ms)`);
+    }
+    
+    let extraPoints = 0;
+    const config = this.DURATION_CONFIG;
+    
+    if (durationRatio >= config.goodWindow.min && durationRatio <= config.goodWindow.max) {
+      extraPoints = config.goodBonus.perfect; // Basic bonus for decent hold
+      
+      if (durationRatio >= config.perfectWindow.min && durationRatio <= config.perfectWindow.max) {
+        extraPoints = config.perfectBonus.perfect; // Excellent bonus
+        
+        if (config.showBonusText) {
+          console.log(`🌟 Excellent hold! Beat ${lastScoredNoteIndex + 1} +${extraPoints} bonus`);
+        }
+        
+        // Update visual feedback for the previous note with a small delay
+        if (config.showHoldIndicator) {
+          setTimeout(() => {
+            if (this.visualizer) {
+              this.visualizer.flashNoteFeedback(lastScoredNoteIndex, 'perfect-hold');
+            }
+          }, 100);
+        }
+      } else {
+        if (config.showBonusText) {
+          console.log(`✨ Good hold! Beat ${lastScoredNoteIndex + 1} +${extraPoints} bonus`);
+        }
+      }
+      
+      // Add points to score
+      if (this.isMultiplayer) {
+        this.scores[player] += extraPoints;
+        this.updateMultiplayerDisplays();
+      } else {
+        this.score += extraPoints;
+        this.scoreDisplay.textContent = this.score;
+      }
+      
+      // Show floating bonus points
+      if (config.showBonusText) {
+        this.showBonusPoints(player, extraPoints);
+      }
+    }
+    
+    // Clear the hold duration after using it
+    this.holdDurations[player] = null;
+  }
+  
+  // Phase 3.3.1: Show bonus points floating animation
+  showBonusPoints(player, extraPoints) {
+    // Create floating bonus text element
+    const bonusElement = document.createElement('div');
+    bonusElement.className = 'bonus-points';
+    bonusElement.textContent = `+${extraPoints}`;
+    bonusElement.style.cssText = `
+      position: absolute;
+      color: gold;
+      font-weight: bold;
+      font-size: 16px;
+      pointer-events: none;
+      z-index: 1000;
+      animation: float-up 1.5s ease-out forwards;
+    `;
+    
+    // Position near the appropriate player's score display
+    let targetElement;
+    if (this.isMultiplayer) {
+      targetElement = player === 'player1' ? 
+        document.getElementById('score-p1') : 
+        document.getElementById('score-p2');
+    } else {
+      targetElement = document.getElementById('scoreDisplay');
+    }
+    
+    if (targetElement) {
+      const rect = targetElement.getBoundingClientRect();
+      bonusElement.style.left = (rect.left + rect.width / 2) + 'px';
+      bonusElement.style.top = (rect.top - 10) + 'px';
+      
+      document.body.appendChild(bonusElement);
+      
+      // Remove element after animation
+      setTimeout(() => {
+        if (bonusElement.parentNode) {
+          bonusElement.parentNode.removeChild(bonusElement);
+        }
+      }, 1500);
+    }
+  }
+  
   // Check if a tap occurs during a rest timing window
   checkForRestViolation(tapTime) {
     if (!this.rhythmEngine || !this.rhythmEngine.isPlaying) return null;
     
-    console.log(`DEBUG: checkForRestViolation tapTime=${tapTime}`);
-    console.log(`DEBUG: pattern length=${this.rhythmEngine.pattern.length}`);
-    console.log(`DEBUG: expectedTimes=`, this.rhythmEngine.expectedTimes);
+    if (this.debugMode) {
+      console.log(`DEBUG: checkForRestViolation tapTime=${tapTime}`);
+      console.log(`DEBUG: pattern length=${this.rhythmEngine.pattern.length}`);
+      console.log(`DEBUG: expectedTimes=`, this.rhythmEngine.expectedTimes);
+    }
     
     const toleranceWindow = 85; // Same as note detection tolerance
     
@@ -802,7 +1160,9 @@ class GameController {
       const expectedTime = this.rhythmEngine.expectedTimes[index];
       const isRest = note && note.rest;
       
-      console.log(`DEBUG: Beat ${index} (Musical Beat ${index + 1}): expectedTime=${expectedTime}, isRest=${isRest}, noteType=${note ? note.type : 'undefined'}`);
+      if (this.debugMode) {
+        console.log(`DEBUG: Beat ${index} (Musical Beat ${index + 1}): expectedTime=${expectedTime}, isRest=${isRest}, noteType=${note ? note.type : 'undefined'}`);
+      }
       
       // Only check rest notes
       if (!isRest) continue;
@@ -820,17 +1180,23 @@ class GameController {
         // Rest window should end before next note's early timing window
         restWindowEnd = Math.min(restWindowEnd, nextNoteEarlyWindow);
         
-        console.log(`DEBUG: Rest ${index} - Limited by next note at ${nextNoteTime}ms, restWindowEnd capped at ${restWindowEnd}ms`);
+        if (this.debugMode) {
+          console.log(`DEBUG: Rest ${index} - Limited by next note at ${nextNoteTime}ms, restWindowEnd capped at ${restWindowEnd}ms`);
+        }
       }
       
       const timeDiff = Math.abs(tapTime - expectedTime);
       
-      console.log(`DEBUG: Rest ${index} - expectedTime=${expectedTime}, restDuration=${restDuration}, restWindowEnd=${restWindowEnd}, timeDiff=${timeDiff}, toleranceWindow=${toleranceWindow}`);
+      if (this.debugMode) {
+        console.log(`DEBUG: Rest ${index} - expectedTime=${expectedTime}, restDuration=${restDuration}, restWindowEnd=${restWindowEnd}, timeDiff=${timeDiff}, toleranceWindow=${toleranceWindow}`);
+      }
       
       // Check if tap is within this rest's timing window (with proper boundaries)
       if (tapTime >= expectedTime - toleranceWindow && 
           tapTime <= restWindowEnd) {
-        console.log(`DEBUG: REST VIOLATION DETECTED at index ${index} (Musical Beat ${index + 1})`);
+        if (this.debugMode) {
+          console.log(`DEBUG: REST VIOLATION DETECTED at index ${index} (Musical Beat ${index + 1})`);
+        }
         return {
           restIndex: index,
           musicalBeat: index + 1, // Convert to musical beat number
@@ -841,8 +1207,9 @@ class GameController {
       }
     }
     
-    console.log(`DEBUG: No rest violation detected for tapTime=${tapTime}`);
-    return null; // No rest violation
+    if (this.debugMode) {
+      console.log(`DEBUG: No rest violation detected for tapTime=${tapTime}`);
+    }
   }
   
   // Handle rest violation with educational feedback
@@ -946,6 +1313,12 @@ class GameController {
           break;
       }
       
+      // Add bonus to total points (duration bonuses are now handled retroactively)
+      // No extra points added here anymore
+      
+      // Phase 3.3: Visual result is just the normal result now
+      let visualResult = result.result;
+      
       // Update appropriate scoring system
       if (this.isMultiplayer) {
         // Update multiplayer scores
@@ -966,7 +1339,7 @@ class GameController {
       
       // Show feedback on the pattern visualizer (same for both modes)
       if (this.visualizer) {
-        this.visualizer.flashNoteFeedback(closestIndex, result.result);
+        this.visualizer.flashNoteFeedback(closestIndex, visualResult);
       }
     }
   }

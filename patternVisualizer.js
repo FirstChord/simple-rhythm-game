@@ -358,6 +358,11 @@ class PatternVisualizer {
     if (result === 'perfect') {
       block.style.background = '#4CAF50'; // Green
       block.classList.add('perfect');
+    } else if (result === 'perfect-hold') {
+      // Phase 3.3: Special feedback for excellent duration
+      block.style.background = 'linear-gradient(45deg, #4CAF50, #FFD700)'; // Green to gold gradient
+      block.style.boxShadow = '0 0 10px rgba(255, 215, 0, 0.6)'; // Gold glow
+      block.classList.add('perfect-hold');
     } else if (result === 'good') {
       block.style.background = '#FF9800'; // Yellow
       block.classList.add('good');

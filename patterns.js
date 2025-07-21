@@ -26,6 +26,29 @@ const PATTERNS = {
         { type: 'quarter', rest: true },
         { type: 'quarter', rest: false }
       ]
+    },
+    {
+      id: 'test_final_beat',
+      name: 'Final Beat Test (3 notes)',
+      description: 'Test pattern for final beat bonus - exactly 3 quarter notes',
+      difficulty: 'simple',
+      pattern: [
+        { type: 'quarter', rest: false },
+        { type: 'quarter', rest: false },
+        { type: 'quarter', rest: false }
+      ]
+    },
+    {
+      id: 'test_final_beat_4',
+      name: 'Final Beat Test (4 notes)',
+      description: 'Test pattern for final beat bonus - classic 4 quarter notes',
+      difficulty: 'simple',
+      pattern: [
+        { type: 'quarter', rest: false },
+        { type: 'quarter', rest: false },
+        { type: 'quarter', rest: false },
+        { type: 'quarter', rest: false }
+      ]
     }
   ],
 
