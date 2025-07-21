@@ -748,7 +748,7 @@ class GameController {
     // Convert pattern to VexFlow format and display
     if (this.vexDisplay) {
       const vexFlowPattern = this.convertPatternToVexFlow(patternData.pattern);
-      this.vexDisplay.displayPattern(vexFlowPattern);
+      this.vexDisplay.displayPattern(vexFlowPattern, patternData);
     }
     
     console.log("Pattern preview loaded:", patternData.name);
