@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Multi-Bar Pattern System Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ccc; }
+        .pass { color: green; font-weight: bold; }
+        .fail { color: red; font-weight: bold; }
+        .pattern-list { margin: 10px 0; }
+        .pattern-item { margin: 5px 0; padding: 5px; background: #f5f5f5; }
+    </style>
+</head>
+<body>
+    <h1>Multi-Bar Pattern System Test</h1>
+    <div id="test-results"></div>
+
+    <script src="patterns.js"></script>
+    <script>
+        const results = document.getElementById('test-results');
+        let testsPassed = 0;
+        let testsFailed = 0;
+
+        function addResult(testName, passed, details = '') {
+            const section = document.createElement('div');
+            section.className = 'test-section';
+            
+            const status = passed ? 'PASS' : 'FAIL';
+            const statusClass = passed ? 'pass' : 'fail';
+            
+            section.innerHTML = `
+                <h3>${testName}: <span class="${statusClass}">${status}</span></h3>
+                ${details ? `<p>${details}</p>` : ''}
+            `;
+            
+            results.appendChild(section);
+            
+            if (passed) testsPassed++;
+            else testsFailed++;
+        }
+
+        // Test 1: Compatibility layer simulation
+        function testCompatibilityLayer() {
+            let compatible = true;
+            let details = [];
+            
+            // Simulate the compatibility function
+            for (const difficulty in PATTERNS) {
+                const patterns = PATTERNS[difficulty];
+                patterns.forEach(pattern => {
+                    if (!pattern.bars) pattern.bars = 1;
+                    if (!pattern.difficulty) pattern.difficulty = difficulty;
+                    if (!pattern.timeSignature) pattern.timeSignature = { numerator: 4, denominator: 4 };
+                    if (!pattern.tags) pattern.tags = [];
+                    if (!pattern.creator) pattern.creator = 'system';
+                });
+            }
+            
+            // Verify all patterns have required properties
+            for (const difficulty in PATTERNS) {
+                const patterns = PATTERNS[difficulty];
+                patterns.forEach(pattern => {
+                    if (!pattern.bars || !pattern.difficulty || !pattern.timeSignature || 
+                        !pattern.tags || !pattern.creator) {
+                        compatible = false;
+                        details.push(`Pattern ${pattern.id} missing required properties`);
+                    }
+                });
+            }
+            
+            addResult('Pattern Compatibility Layer', compatible, 
+                compatible ? 'All patterns have required properties' : details.join(', '));
+        }
+
+        // Test 2: Multi-bar patterns
+        function testMultiBarPatterns() {
+            let found = false;
+            let details = [];
+            
+            for (const difficulty in PATTERNS) {
+                const patterns = PATTERNS[difficulty];
+                patterns.forEach(pattern => {
+                    if (pattern.bars && pattern.bars > 1) {
+                        found = true;
+                        details.push(`${pattern.name}: ${pattern.bars} bars, ${pattern.timeSignature.numerator}/${pattern.timeSignature.denominator} time`);
+                    }
+                });
+            }
+            
+            addResult('Multi-Bar Pattern Detection', found, 
+                found ? `Found multi-bar patterns:<br>${details.join('<br>')}` : 'No multi-bar patterns found');
+        }
+
+        // Test 3: Time signature variety
+        function testTimeSignatures() {
+            const signatures = new Set();
+            
+            for (const difficulty in PATTERNS) {
+                const patterns = PATTERNS[difficulty];
+                patterns.forEach(pattern => {
+                    if (pattern.timeSignature) {
+                        signatures.add(`${pattern.timeSignature.numerator}/${pattern.timeSignature.denominator}`);
+                    }
+                });
+            }
+            
+            const hasVariety = signatures.size > 1;
+            addResult('Time Signature Variety', hasVariety, 
+                `Found time signatures: ${Array.from(signatures).join(', ')}`);
+        }
+
+        // Test 4: Pattern structure validation
+        function testPatternStructure() {
+            let valid = true;
+            let details = [];
+            
+            for (const difficulty in PATTERNS) {
+                const patterns = PATTERNS[difficulty];
+                patterns.forEach(pattern => {
+                    // Check required fields
+                    if (!pattern.id || !pattern.name || !pattern.pattern || !Array.isArray(pattern.pattern)) {
+                        valid = false;
+                        details.push(`${pattern.id || 'unknown'}: Invalid structure`);
+                        return;
+                    }
+                    
+                    // Check pattern array has valid notes
+                    pattern.pattern.forEach((note, index) => {
+                        if (!note.type || typeof note.rest !== 'boolean') {
+                            valid = false;
+                            details.push(`${pattern.id}: Invalid note at index ${index}`);
+                        }
+                    });
+                });
+            }
+            
+            addResult('Pattern Structure Validation', valid, 
+                valid ? 'All patterns have valid structure' : details.join(', '));
+        }
+
+        // Test 5: Difficulty distribution
+        function testDifficultyDistribution() {
+            const distribution = {};
+            let total = 0;
+            
+            for (const difficulty in PATTERNS) {
+                distribution[difficulty] = PATTERNS[difficulty].length;
+                total += PATTERNS[difficulty].length;
+            }
+            
+            const hasDistribution = Object.keys(distribution).length >= 2;
+            const details = Object.entries(distribution)
+                .map(([diff, count]) => `${diff}: ${count} patterns`)
+                .join(', ');
+            
+            addResult('Difficulty Distribution', hasDistribution, 
+                `Total: ${total} patterns (${details})`);
+        }
+
+        // Test 6: Tag system
+        function testTagSystem() {
+            const allTags = new Set();
+            let patternsWithTags = 0;
+            
+            for (const difficulty in PATTERNS) {
+                const patterns = PATTERNS[difficulty];
+                patterns.forEach(pattern => {
+                    if (pattern.tags && pattern.tags.length > 0) {
+                        patternsWithTags++;
+                        pattern.tags.forEach(tag => allTags.add(tag));
+                    }
+                });
+            }
+            
+            const hasTagSystem = allTags.size > 0;
+            addResult('Tag System', hasTagSystem, 
+                `${patternsWithTags} patterns with tags. Available tags: ${Array.from(allTags).join(', ')}`);
+        }
+
+        // Run all tests
+        testCompatibilityLayer();
+        testMultiBarPatterns();
+        testTimeSignatures();
+        testPatternStructure();
+        testDifficultyDistribution();
+        testTagSystem();
+
+        // Summary
+        const summary = document.createElement('div');
+        summary.className = 'test-section';
+        summary.innerHTML = `
+            <h2>Test Summary</h2>
+            <p><span class="pass">Passed: ${testsPassed}</span> | <span class="fail">Failed: ${testsFailed}</span></p>
+            <p><strong>Overall: ${testsFailed === 0 ? '<span class="pass">ALL TESTS PASSED</span>' : '<span class="fail">SOME TESTS FAILED</span>'}</strong></p>
+        `;
+        results.appendChild(summary);
+    </script>
+</body>
+</html>

@@ -38,6 +38,30 @@ const PATTERNS = {
         { type: 'quarter', rest: false }
       ]
     },
+    
+    // NEW: Simple multi-bar pattern for beginners
+    {
+      id: 'simple_two_bar_basic',
+      name: 'Two-Bar Beginner Pattern',
+      description: 'Simple two-bar pattern for learning multi-bar rhythms',
+      difficulty: 'simple',
+      bars: 2,
+      timeSignature: { numerator: 4, denominator: 4 },
+      tags: ['multi-bar', 'beginner'],
+      creator: 'system',
+      pattern: [
+        // Bar 1: Four quarter notes
+        { type: 'quarter', rest: false },
+        { type: 'quarter', rest: false },
+        { type: 'quarter', rest: false },
+        { type: 'quarter', rest: false },
+        // Bar 2: Quarter, rest, quarter, quarter
+        { type: 'quarter', rest: false },
+        { type: 'quarter', rest: true },
+        { type: 'quarter', rest: false },
+        { type: 'quarter', rest: false }
+      ]
+    },
     {
       id: 'test_final_beat_4',
       name: 'Final Beat Test (4 notes)',
@@ -98,6 +122,58 @@ const PATTERNS = {
         { type: 'quarter', rest: false },      // 1 beat
         { type: 'quarter', rest: false }       // 1 beat
         // Total: 4 beats
+      ]
+    },
+    
+    // NEW: Multi-bar patterns demonstrating extended capabilities
+    {
+      id: 'complex_multibar_verse',
+      name: 'Two-Bar Verse Pattern',
+      description: 'Complex rhythm spanning two bars with tags',
+      difficulty: 'complex',
+      bars: 2,
+      timeSignature: { numerator: 4, denominator: 4 },
+      tags: ['multi-bar', 'verse', 'rock'],
+      creator: 'system',
+      pattern: [
+        // Bar 1
+        { type: 'quarter', rest: false },
+        { type: 'eighth', rest: false },
+        { type: 'eighth', rest: true },
+        { type: 'quarter', rest: false },
+        { type: 'quarter', rest: false },
+        // Bar 2  
+        { type: 'eighth', rest: false },
+        { type: 'eighth', rest: false },
+        { type: 'quarter', rest: true },
+        { type: 'eighth', rest: false },
+        { type: 'eighth', rest: false },
+        { type: 'quarter', rest: false }
+      ]
+    },
+    
+    {
+      id: 'complex_waltz_multibar',
+      name: 'Three-Bar Waltz',
+      description: 'Elegant waltz pattern in 3/4 time',
+      difficulty: 'complex', 
+      bars: 3,
+      timeSignature: { numerator: 3, denominator: 4 },
+      tags: ['multi-bar', 'waltz', '3/4'],
+      creator: 'system',
+      pattern: [
+        // Bar 1 (3 beats)
+        { type: 'quarter', rest: false },
+        { type: 'quarter', rest: false },
+        { type: 'quarter', rest: false },
+        // Bar 2 (3 beats)
+        { type: 'quarter', rest: false },
+        { type: 'quarter', rest: true },
+        { type: 'quarter', rest: false },
+        // Bar 3 (3 beats)
+        { type: 'quarter', rest: false },
+        { type: 'quarter', rest: false },
+        { type: 'quarter', rest: true }
       ]
     }
   ]

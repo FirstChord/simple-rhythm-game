@@ -354,24 +354,28 @@
             color: #666;
         }
         
-        /* Phase 3.3: Bonus points animation */
+        /* Phase 3.3: Enhanced bonus points animation */
         .bonus-points {
             position: absolute;
             color: gold;
             font-weight: bold;
-            font-size: 16px;
+            font-size: 20px;
             pointer-events: none;
             z-index: 1000;
-            text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
         }
         
         @keyframes float-up {
             0% {
-                transform: translateY(0px);
+                transform: translateY(0px) scale(1);
                 opacity: 1;
             }
+            50% {
+                transform: translateY(-20px) scale(1.2);
+                opacity: 0.9;
+            }
             100% {
-                transform: translateY(-30px);
+                transform: translateY(-50px) scale(1);
                 opacity: 0;
             }
         }

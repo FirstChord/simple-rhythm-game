@@ -1,6 +1,25 @@
 // gameController.js - Centralized game logic controller
 // Extracted from the original HTML file to organize code better
 
+// Configuration Constants
+const TIMING_CONSTANTS = {
+  DEBOUNCE_TIME: 50,           // Minimum time between inputs (ms)
+  MISS_CHECK_INTERVAL: 50,     // How often to check for missed notes (ms)
+  REACTION_TIME_BUFFER: 300,   // Buffer for first beat reaction time (ms)
+  COMPLETION_CHECK_INTERVAL: 50 // How often to check game completion (ms)
+};
+
+const PLAYERS = {
+  ONE: 'player1',
+  TWO: 'player2'
+};
+
+const ANIMATION_CONSTANTS = {
+  BONUS_DURATION: 2000,        // How long bonus points float (ms)
+  BONUS_FONT_SIZE: 20,         // Font size for bonus points (px)
+  FEEDBACK_DELAY: 100          // Delay for visual feedback (ms)
+};
+
 class GameController {
   constructor() {
     // Initialize all game state variables
@@ -119,16 +138,57 @@ class GameController {
       showBonusText: true,
       showHoldIndicator: true,
       
-      // Easy on/off switch
-      isEnabled: true
-    };
-    
-    // Initialize audio system
-    this.audio = new SimpleAudio();
-    
-    // Initialize after DOM is ready
+    // Easy on/off switch
+    isEnabled: true
+  };
+
+  // Ensure pattern compatibility across all existing patterns
+  this.ensurePatternCompatibility();
+
+  // Initialize audio system
+  this.audio = new SimpleAudio();    // Initialize after DOM is ready
     this.initializeElements();
     this.bindEvents();
+  }
+
+  // Ensures all patterns have required properties with sensible defaults
+  ensurePatternCompatibility() {
+    let patternsProcessed = 0;
+    
+    // Iterate through all difficulty levels
+    for (const difficulty in PATTERNS) {
+      const patterns = PATTERNS[difficulty];
+      patterns.forEach(pattern => {
+        // Add bars property (default to 1 for single-bar patterns)
+        if (!pattern.bars) {
+          pattern.bars = 1;
+        }
+        
+        // Ensure difficulty is set (should match the category, but just in case)
+        if (!pattern.difficulty) {
+          pattern.difficulty = difficulty;
+        }
+        
+        // Add timeSignature property (default to 4/4)
+        if (!pattern.timeSignature) {
+          pattern.timeSignature = { numerator: 4, denominator: 4 };
+        }
+        
+        // Add tags array for filtering (default to empty)
+        if (!pattern.tags) {
+          pattern.tags = [];
+        }
+        
+        // Add creator property for attribution (default to 'system')
+        if (!pattern.creator) {
+          pattern.creator = 'system';
+        }
+        
+        patternsProcessed++;
+      });
+    }
+    
+    console.log(`Pattern compatibility layer: processed ${patternsProcessed} patterns`);
   }
   
   initializeElements() {
@@ -160,7 +220,7 @@ class GameController {
     this.currentTempo = parseInt(this.tempoSlider.value, 10) || 120;
     
     // Update pattern info display
-    this.patternInfo.textContent = this.getPatternName(this.selectedPattern);
+    this.patternInfo.textContent = this.getPatternDisplayText(this.selectedPattern);
     
     // Initialize VexFlow display BEFORE loading pattern preview
     this.vexDisplay = new VexFlowDisplay(document.getElementById('notation-container'));
@@ -205,7 +265,7 @@ class GameController {
     // Pattern selection
     this.patternSelect.addEventListener('change', () => {
       this.selectedPattern = this.patternSelect.value;
-      this.patternInfo.textContent = this.getPatternName(this.selectedPattern);
+      this.patternInfo.textContent = this.getPatternDisplayText(this.selectedPattern);
       
       // Load and display the pattern immediately
       this.loadPatternPreview();
@@ -233,16 +293,16 @@ class GameController {
         // Single player mode - only 'T' key
         if (!this.isMultiplayer && e.code === 'KeyT') {
           e.preventDefault();
-          this.handleInput('player1');
+          this.handleInput(PLAYERS.ONE);
         }
         // Multiplayer mode - 'A' and 'K' keys
         else if (this.isMultiplayer && e.code === 'KeyA') {
           e.preventDefault();
-          this.handleInput('player1');
+          this.handleInput(PLAYERS.ONE);
         }
         else if (this.isMultiplayer && e.code === 'KeyK') {
           e.preventDefault();
-          this.handleInput('player2');
+          this.handleInput(PLAYERS.TWO);
         }
       }
     });
@@ -254,11 +314,11 @@ class GameController {
         
         // Determine which player released their key
         if (!this.isMultiplayer && e.code === 'KeyT') {
-          player = 'player1';
+          player = PLAYERS.ONE;
         } else if (this.isMultiplayer && e.code === 'KeyA') {
-          player = 'player1';
+          player = PLAYERS.ONE;
         } else if (this.isMultiplayer && e.code === 'KeyK') {
-          player = 'player2';
+          player = PLAYERS.TWO;
         }
         
         if (player) {
@@ -407,6 +467,30 @@ class GameController {
   getPatternName(patternId) {
     const pattern = getPatternById(patternId);
     return pattern ? pattern.name : 'Unknown Pattern';
+  }
+  
+  // Get detailed pattern display text for UI
+  getPatternDisplayText(patternId) {
+    const pattern = getPatternById(patternId);
+    if (!pattern) return 'Unknown Pattern';
+    
+    const info = this.getPatternInfo(pattern);
+    let displayText = pattern.name;
+    
+    // Add multi-bar indicator
+    if (info.isMultiBar) {
+      displayText += ` (${info.bars} bars)`;
+    }
+    
+    // Add time signature if not 4/4
+    if (info.timeSignature !== '4/4') {
+      displayText += ` [${info.timeSignature}]`;
+    }
+    
+    // Add difficulty badge
+    displayText += ` - ${pattern.difficulty}`;
+    
+    return displayText;
   }
   
   // Update hit summary display
@@ -602,7 +686,7 @@ class GameController {
     this.lastCheckedNoteIndex = -1;
     this.missCheckTimer = setInterval(() => {
       this.checkForMisses();
-    }, 50); // Check every 50ms
+    }, TIMING_CONSTANTS.MISS_CHECK_INTERVAL);
   }
   
   // Stop miss detection timer
@@ -679,7 +763,7 @@ class GameController {
   calculateExpectedTimes(pattern, beatInterval) {
     const times = [];
     // Add reaction time buffer to first beat (300ms seems reasonable)
-    let currentTime = 300; // Start first beat at 300ms instead of 0ms
+    let currentTime = TIMING_CONSTANTS.REACTION_TIME_BUFFER; // Start first beat at 300ms instead of 0ms
     
     for (const note of pattern) {
       times.push(currentTime);
@@ -712,6 +796,36 @@ class GameController {
     if (note.dotted) duration *= 1.5;
     
     return duration;
+  }
+  
+  // Calculate total duration of a pattern (supports multi-bar patterns)
+  getTotalPatternDuration(patternData, beatInterval) {
+    const bars = patternData.bars || 1;
+    const timeSignature = patternData.timeSignature || { numerator: 4, denominator: 4 };
+    
+    // Calculate beats per bar based on time signature
+    const beatsPerBar = timeSignature.numerator;
+    const totalBeats = bars * beatsPerBar;
+    
+    // Total duration in milliseconds
+    return totalBeats * beatInterval;
+  }
+  
+  // Get information about pattern structure for display
+  getPatternInfo(patternData) {
+    const bars = patternData.bars || 1;
+    const timeSignature = patternData.timeSignature || { numerator: 4, denominator: 4 };
+    const tags = patternData.tags || [];
+    const creator = patternData.creator || 'system';
+    
+    return {
+      bars,
+      timeSignature: `${timeSignature.numerator}/${timeSignature.denominator}`,
+      tags,
+      creator,
+      isMultiBar: bars > 1,
+      patternLength: patternData.pattern.length
+    };
   }
   
   // Sleep utility function
@@ -888,7 +1002,7 @@ class GameController {
       if (this.isPlaying && performance.now() >= this.patternEndTime) {
         this.endGame();
       }
-    }, 50); // Check every 50ms for precision
+    }, TIMING_CONSTANTS.COMPLETION_CHECK_INTERVAL);
     
     console.log("Game started! Press 'T' key to tap along with the pattern.");
     console.log("Pattern:", patternData.name, "-", patternData.description);
@@ -919,17 +1033,17 @@ class GameController {
     if (this.DURATION_CONFIG.isEnabled) {
       // Apply any pending hold bonuses for both players
       if (!this.isMultiplayer) {
-        if (this.holdDurations.player1) {
-          this.applyPreviousHoldBonus('player1');
+        if (this.holdDurations[PLAYERS.ONE]) {
+          this.applyPreviousHoldBonus(PLAYERS.ONE);
           console.log('🏁 Applied final beat bonus for single player');
         }
       } else {
-        if (this.holdDurations.player1) {
-          this.applyPreviousHoldBonus('player1');
+        if (this.holdDurations[PLAYERS.ONE]) {
+          this.applyPreviousHoldBonus(PLAYERS.ONE);
           console.log('🏁 Applied final beat bonus for player 1');
         }
-        if (this.holdDurations.player2) {
-          this.applyPreviousHoldBonus('player2');
+        if (this.holdDurations[PLAYERS.TWO]) {
+          this.applyPreviousHoldBonus(PLAYERS.TWO);
           console.log('🏁 Applied final beat bonus for player 2');
         }
       }
@@ -978,7 +1092,7 @@ class GameController {
     // Prevent duplicate processing with per-player debounce
     const currentTime = performance.now() - this.rhythmEngine.startTime;
     const lastTapTimeForPlayer = this.lastTapTimeByPlayer[player] || 0;
-    if (lastTapTimeForPlayer && Math.abs(currentTime - lastTapTimeForPlayer) < 50) {
+    if (lastTapTimeForPlayer && Math.abs(currentTime - lastTapTimeForPlayer) < TIMING_CONSTANTS.DEBOUNCE_TIME) {
       if (this.debugMode) {
         console.log("DEBUG: Ignoring duplicate tap from", player, "(too close to previous)");
       }
@@ -1073,7 +1187,7 @@ class GameController {
             if (this.visualizer) {
               this.visualizer.flashNoteFeedback(lastScoredNoteIndex, 'perfect-hold');
             }
-          }, 100);
+          }, ANIMATION_CONSTANTS.FEEDBACK_DELAY);
         }
       } else {
         if (config.showBonusText) {
@@ -1100,7 +1214,7 @@ class GameController {
     this.holdDurations[player] = null;
   }
   
-  // Phase 3.3.1: Show bonus points floating animation
+  // Phase 3.3.1: Show bonus points floating animation - Enhanced visibility
   showBonusPoints(player, extraPoints) {
     // Create floating bonus text element
     const bonusElement = document.createElement('div');
@@ -1110,16 +1224,17 @@ class GameController {
       position: absolute;
       color: gold;
       font-weight: bold;
-      font-size: 16px;
+      font-size: ${ANIMATION_CONSTANTS.BONUS_FONT_SIZE}px;
       pointer-events: none;
       z-index: 1000;
-      animation: float-up 1.5s ease-out forwards;
+      text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+      animation: float-up ${ANIMATION_CONSTANTS.BONUS_DURATION}ms ease-out forwards;
     `;
     
     // Position near the appropriate player's score display
     let targetElement;
     if (this.isMultiplayer) {
-      targetElement = player === 'player1' ? 
+      targetElement = player === PLAYERS.ONE ? 
         document.getElementById('score-p1') : 
         document.getElementById('score-p2');
     } else {
