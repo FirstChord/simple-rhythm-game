@@ -150,31 +150,6 @@ const PATTERNS = {
         { type: 'eighth', rest: false },
         { type: 'quarter', rest: false }
       ]
-    },
-    
-    {
-      id: 'complex_waltz_multibar',
-      name: 'Three-Bar Waltz',
-      description: 'Elegant waltz pattern in 3/4 time',
-      difficulty: 'complex', 
-      bars: 3,
-      timeSignature: { numerator: 3, denominator: 4 },
-      tags: ['multi-bar', 'waltz', '3/4'],
-      creator: 'system',
-      pattern: [
-        // Bar 1 (3 beats)
-        { type: 'quarter', rest: false },
-        { type: 'quarter', rest: false },
-        { type: 'quarter', rest: false },
-        // Bar 2 (3 beats)
-        { type: 'quarter', rest: false },
-        { type: 'quarter', rest: true },
-        { type: 'quarter', rest: false },
-        // Bar 3 (3 beats)
-        { type: 'quarter', rest: false },
-        { type: 'quarter', rest: false },
-        { type: 'quarter', rest: true }
-      ]
     }
   ]
 };

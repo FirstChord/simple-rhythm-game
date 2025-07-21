@@ -169,7 +169,7 @@ class GameController {
           pattern.difficulty = difficulty;
         }
         
-        // Add timeSignature property (default to 4/4)
+        // Add timeSignature property (always 4/4 for now)
         if (!pattern.timeSignature) {
           pattern.timeSignature = { numerator: 4, denominator: 4 };
         }

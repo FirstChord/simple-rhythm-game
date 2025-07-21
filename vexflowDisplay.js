@@ -55,8 +55,8 @@ class VexFlowDisplay {
   
   // Display single bar pattern
   displaySingleBar(pattern, timeSignature) {
-    // Create a stave (staff)
-    this.stave = new Vex.Flow.Stave(10, 40, 500);
+    // Create a stave (staff) with better proportions
+    this.stave = new Vex.Flow.Stave(20, 40, 580);
     this.stave.addClef('treble');
     this.stave.addTimeSignature(`${timeSignature.numerator}/${timeSignature.denominator}`);
     this.stave.setContext(this.context).draw();
@@ -67,20 +67,24 @@ class VexFlowDisplay {
     // Convert pattern to VexFlow notes
     const notes = this.patternToVexNotes(paddedPattern);
     
-    this.drawNotesOnStave(notes, this.stave, timeSignature.numerator);
+    this.drawNotesOnStave(notes, this.stave, timeSignature.numerator, false);
   }
   
   // Display multi-bar pattern
   displayMultiBar(pattern, bars, timeSignature) {
     const beatsPerBar = timeSignature.numerator;
-    const staveWidth = Math.min(450, Math.floor(580 / bars)); // Adjust width based on number of bars
-    const staveSpacing = staveWidth + 20;
+    
+    // Calculate stave dimensions - make them wider and connect them
+    const totalWidth = 650;
+    const staveWidth = Math.floor((totalWidth - 40) / bars) - 5; // Leave space for connections
     
     // Split pattern into bars
     const patternBars = this.splitPatternIntoBars(pattern, bars, timeSignature);
     
+    const staves = [];
+    
     for (let barIndex = 0; barIndex < bars; barIndex++) {
-      const x = 10 + (barIndex * staveSpacing);
+      const x = 20 + (barIndex * (staveWidth + 5)); // Minimal spacing between bars
       const y = 40;
       
       // Create stave for this bar
@@ -92,20 +96,61 @@ class VexFlowDisplay {
         stave.addTimeSignature(`${timeSignature.numerator}/${timeSignature.denominator}`);
       }
       
+      // Connect bars with bar lines (except the last one)
+      if (barIndex < bars - 1) {
+        stave.setEndBarType(Vex.Flow.Barline.type.SINGLE);
+      } else {
+        stave.setEndBarType(Vex.Flow.Barline.type.END);
+      }
+      
       stave.setContext(this.context).draw();
+      staves.push(stave);
       
       // Get notes for this bar
       const barPattern = patternBars[barIndex] || [];
       const paddedBarPattern = this.padPatternToMeasure(barPattern, timeSignature);
       const notes = this.patternToVexNotes(paddedBarPattern);
       
-      // Draw notes on this stave
-      this.drawNotesOnStave(notes, stave, timeSignature.numerator);
+      // Draw notes on this stave with better spacing
+      this.drawNotesOnStave(notes, stave, timeSignature.numerator, true);
+    }
+    
+    // Connect the staves visually (draw connecting lines if needed)
+    this.connectStaves(staves);
+  }
+  
+  // Connect multiple staves visually
+  connectStaves(staves) {
+    if (staves.length < 2) return;
+    
+    // Draw connecting lines between staves
+    for (let i = 0; i < staves.length - 1; i++) {
+      const currentStave = staves[i];
+      const nextStave = staves[i + 1];
+      
+      // Get the end x of current stave and start x of next stave
+      const currentEnd = currentStave.getX() + currentStave.getWidth();
+      const nextStart = nextStave.getX();
+      
+      // Draw a thin connecting line
+      if (nextStart - currentEnd < 10) {
+        const y1 = currentStave.getY();
+        const y2 = currentStave.getY() + currentStave.getHeight();
+        
+        this.context.beginPath();
+        this.context.moveTo(currentEnd, y1);
+        this.context.lineTo(nextStart, y1);
+        this.context.moveTo(currentEnd, y2);
+        this.context.lineTo(nextStart, y2);
+        this.context.strokeStyle = '#000';
+        this.context.lineWidth = 1;
+        this.context.stroke();
+      }
     }
   }
   
   // Helper to draw notes on a stave
-  drawNotesOnStave(notes, stave, numBeats) {
+  drawNotesOnStave(notes, stave, numBeats, isMultiBar = false) {
     if (notes.length === 0) return;
     
     // Create voice with appropriate duration
@@ -121,9 +166,25 @@ class VexFlowDisplay {
       // Generate beams before formatting
       const beams = Vex.Flow.Beam.generateBeams(notes);
       
-      // Format and draw
+      // Format and draw with better spacing
       const formatter = new Vex.Flow.Formatter();
-      formatter.joinVoices([voice]).format([voice], stave.getWidth() - 50);
+      
+      // Calculate available width, leaving more space at the end to avoid crowding
+      const availableWidth = stave.getWidth() - (isMultiBar ? 80 : 60); // More padding for multi-bar
+      const startX = stave.getX() + (isMultiBar ? 40 : 30); // Start further from the beginning
+      
+      formatter.joinVoices([voice]).format([voice], availableWidth);
+      
+      // Manually adjust note positions if they're too close to the end
+      const notePositions = voice.getTickables().map(note => note.getAbsoluteX());
+      const lastNoteX = notePositions[notePositions.length - 1];
+      const staveEndX = stave.getX() + stave.getWidth() - 20; // 20px from end
+      
+      if (lastNoteX > staveEndX) {
+        // Compress the spacing slightly
+        const compressionRatio = staveEndX / lastNoteX;
+        formatter.format([voice], availableWidth * compressionRatio);
+      }
       
       // Draw voice
       voice.draw(this.context, stave);
