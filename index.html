@@ -15,7 +15,8 @@
         }
         
         .game-container {
-            max-width: 900px;
+            width: 95%;
+            max-width: 1400px;
             height: calc(100vh - 20px);
             margin: 0 auto;
             background: white;
@@ -222,29 +223,31 @@
         }
         
         .notation-section {
-            padding: 12px 20px;
+            padding: 15px 20px;
             border-bottom: 1px solid #ddd;
-            background: white;
+            background: #f9f9f9;
             flex: 1;
             overflow: auto;
             min-height: 0;
         }
         
         .notation-section h3 {
-            margin: 0 0 8px 0;
+            margin: 0 0 12px 0;
             color: #333;
             font-size: 16px;
+            text-align: center;
         }
         
         #notation-container {
             background: white;
             border: 1px solid #ddd;
             border-radius: 6px;
-            padding: 12px;
+            padding: 15px;
             box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-            height: 160px;
+            height: 180px;
             width: 100%;
             overflow: hidden;
+            margin: 0 auto;
         }
         
         .instructions {
@@ -278,38 +281,50 @@
                 align-items: stretch;
             }
             
-            .info-row {
-                flex-direction: column;
-                font-size: 12px;
+            .control-group {
+                margin-bottom: 12px;
             }
             
-            .info-value {
-                margin-top: 2px;
+            .control-row > * {
+                margin: 4px 0;
             }
             
-            .gameplay-area {
-                flex-direction: column;
-                gap: 10px;
-                text-align: center;
-            }
-            
-            .metronome-container {
-                flex: none;
-            }
-            
-            .visual-metronome,
-            .beat-indicator {
-                width: 60px !important;
-                height: 60px !important;
-            }
-            
-            .beat-counter {
-                font-size: 18px !important;
-                line-height: 60px !important;
+            .value-display {
+                order: 2;
             }
         }
         
-        /* Multiplayer Styles */
+        /* Large screen optimizations */
+        @media (min-width: 1200px) {
+            .game-container {
+                width: 95%;
+                max-width: 1400px;
+            }
+            
+            /* Make notation container wider and taller on large screens */
+            #notation-container {
+                height: 200px;
+                max-width: 1000px;
+                margin: 0 auto;
+            }
+            
+            /* Better spacing for gameplay area */
+            .gameplay-area {
+                padding: 20px;
+                max-width: 1000px;
+                margin: 0 auto;
+            }
+            
+            /* Center the notation section */
+            .notation-section {
+                padding: 20px;
+                text-align: center;
+            }
+            
+            .notation-section h3 {
+                margin-bottom: 15px;
+            }
+        }        /* Multiplayer Styles */
         .player-scores {
             display: flex;
             gap: 20px;

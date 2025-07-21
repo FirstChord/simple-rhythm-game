@@ -20,10 +20,11 @@ class VexFlowDisplay {
       Vex.Flow.Renderer.Backends.SVG
     );
     
-    // Size based on container - larger for multi-bar patterns
-    const width = 700;
-    const height = 180;
-    this.renderer.resize(width, height);
+    // Size based on container - optimized for underneath gameplay
+    const containerWidth = this.container.offsetWidth || 700;
+    this.width = Math.max(600, Math.min(containerWidth - 40, 1000)); // Between 600-1000px
+    this.height = 180; // Good height for readability without taking too much space
+    this.renderer.resize(this.width, this.height);
     
     this.context = this.renderer.getContext();
   }
@@ -55,8 +56,9 @@ class VexFlowDisplay {
   
   // Display single bar pattern
   displaySingleBar(pattern, timeSignature) {
-    // Create a stave (staff) with better proportions
-    this.stave = new Vex.Flow.Stave(20, 40, 580);
+    // Create a stave (staff) with responsive width
+    const staveWidth = this.width - 80; // Leave margins
+    this.stave = new Vex.Flow.Stave(40, 40, staveWidth);
     this.stave.addClef('treble');
     this.stave.addTimeSignature(`${timeSignature.numerator}/${timeSignature.denominator}`);
     this.stave.setContext(this.context).draw();
@@ -74,9 +76,9 @@ class VexFlowDisplay {
   displayMultiBar(pattern, bars, timeSignature) {
     const beatsPerBar = timeSignature.numerator;
     
-    // Calculate stave dimensions - make them wider and connect them
-    const totalWidth = 650;
-    const staveWidth = Math.floor((totalWidth - 40) / bars) - 5; // Leave space for connections
+    // Calculate stave dimensions using responsive width
+    const totalWidth = this.width - 80; // Leave margins
+    const staveWidth = Math.floor(totalWidth / bars) - 10; // Space for connections
     
     // Split pattern into bars
     const patternBars = this.splitPatternIntoBars(pattern, bars, timeSignature);
@@ -84,7 +86,7 @@ class VexFlowDisplay {
     const staves = [];
     
     for (let barIndex = 0; barIndex < bars; barIndex++) {
-      const x = 20 + (barIndex * (staveWidth + 5)); // Minimal spacing between bars
+      const x = 40 + (barIndex * (staveWidth + 10)); // Spacing between bars
       const y = 40;
       
       // Create stave for this bar
